@@ -1,0 +1,283 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:portal-mecatronique-1790413381880",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-09-26T09:03:01.880Z",
+    "component": {
+      "type": "application",
+      "name": "portail-mecatronique",
+      "version": "1.0.0",
+      "description": "Portail Mécatronique & Espace Habilités"
+    },
+    "tools": [
+      {
+        "vendor": "Portail DevOps",
+        "name": "SBOM Generator",
+        "version": "1.0.0"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "@google/genai",
+      "version": "2.4.0",
+      "purl": "pkg:npm/@google/genai@2.4.0",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "@tailwindcss/vite",
+      "version": "4.1.14",
+      "purl": "pkg:npm/@tailwindcss/vite@4.1.14",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "@types/bcryptjs",
+      "version": "3.0.0",
+      "purl": "pkg:npm/@types/bcryptjs@3.0.0",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "@vitejs/plugin-react",
+      "version": "5.0.4",
+      "purl": "pkg:npm/@vitejs/plugin-react@5.0.4",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "axios",
+      "version": "1.20.0",
+      "purl": "pkg:npm/axios@1.20.0",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "bcryptjs",
+      "version": "3.0.3",
+      "purl": "pkg:npm/bcryptjs@3.0.3",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "cors",
+      "version": "2.8.6",
+      "purl": "pkg:npm/cors@2.8.6",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "dotenv",
+      "version": "17.2.3",
+      "purl": "pkg:npm/dotenv@17.2.3",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "express",
+      "version": "4.21.2",
+      "purl": "pkg:npm/express@4.21.2",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "jsonwebtoken",
+      "version": "9.0.3",
+      "purl": "pkg:npm/jsonwebtoken@9.0.3",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "jspdf",
+      "version": "4.2.1",
+      "purl": "pkg:npm/jspdf@4.2.1",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "jspdf-autotable",
+      "version": "5.0.8",
+      "purl": "pkg:npm/jspdf-autotable@5.0.8",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "lucide-react",
+      "version": "0.546.0",
+      "purl": "pkg:npm/lucide-react@0.546.0",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "motion",
+      "version": "12.23.24",
+      "purl": "pkg:npm/motion@12.23.24",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "multer",
+      "version": "2.4.0",
+      "purl": "pkg:npm/multer@2.4.0",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "react",
+      "version": "19.0.1",
+      "purl": "pkg:npm/react@19.0.1",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "react-dom",
+      "version": "19.0.1",
+      "purl": "pkg:npm/react-dom@19.0.1",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "react-router-dom",
+      "version": "7.18.3",
+      "purl": "pkg:npm/react-router-dom@7.18.3",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "sqlite",
+      "version": "5.1.1",
+      "purl": "pkg:npm/sqlite@5.1.1",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "sqlite3",
+      "version": "6.0.1",
+      "purl": "pkg:npm/sqlite3@6.0.1",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "vite",
+      "version": "6.2.3",
+      "purl": "pkg:npm/vite@6.2.3",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "@playwright/test",
+      "version": "1.63.0",
+      "purl": "pkg:npm/@playwright/test@1.63.0",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "@testing-library/react",
+      "version": "16.3.3",
+      "purl": "pkg:npm/@testing-library/react@16.3.3",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "@types/cors",
+      "version": "2.8.19",
+      "purl": "pkg:npm/@types/cors@2.8.19",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "@types/express",
+      "version": "4.17.21",
+      "purl": "pkg:npm/@types/express@4.17.21",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "@types/jsonwebtoken",
+      "version": "9.0.10",
+      "purl": "pkg:npm/@types/jsonwebtoken@9.0.10",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "@types/multer",
+      "version": "2.2.0",
+      "purl": "pkg:npm/@types/multer@2.2.0",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "@types/node",
+      "version": "22.14.0",
+      "purl": "pkg:npm/@types/node@22.14.0",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "autoprefixer",
+      "version": "10.4.21",
+      "purl": "pkg:npm/autoprefixer@10.4.21",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "docx",
+      "version": "9.7.2",
+      "purl": "pkg:npm/docx@9.7.2",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "esbuild",
+      "version": "0.25.0",
+      "purl": "pkg:npm/esbuild@0.25.0",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "happy-dom",
+      "version": "20.14.5",
+      "purl": "pkg:npm/happy-dom@20.14.5",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "jszip",
+      "version": "3.10.2",
+      "purl": "pkg:npm/jszip@3.10.2",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "tailwindcss",
+      "version": "4.1.14",
+      "purl": "pkg:npm/tailwindcss@4.1.14",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "tsx",
+      "version": "4.21.0",
+      "purl": "pkg:npm/tsx@4.21.0",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "typescript",
+      "version": "5.8.2",
+      "purl": "pkg:npm/typescript@5.8.2",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "vitest",
+      "version": "5.0.1",
+      "purl": "pkg:npm/vitest@5.0.1",
+      "scope": "optional"
+    }
+  ]
+}

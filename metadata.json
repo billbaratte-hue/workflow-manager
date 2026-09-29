@@ -1,0 +1,6 @@
+{
+  "name": "Portail Mécatronique",
+  "description": "Portail opérationnel et d'administration de gestion des demandes d'accès et habilitations mécatroniques.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

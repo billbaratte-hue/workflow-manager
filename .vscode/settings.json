@@ -1,0 +1,5 @@
+{
+  "antigravity.agent.terminal.confirmCommands": false,
+  "antigravity.agent.toolExecutionPolicy": "always-proceed",
+  "chat.agent.autoApprove": true
+}

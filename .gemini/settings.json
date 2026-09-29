@@ -1,0 +1,5 @@
+{
+  "toolPermission": "always-proceed",
+  "toolExecutionPolicy": "always-proceed",
+  "autoExecutionPolicy": "always-proceed"
+}
