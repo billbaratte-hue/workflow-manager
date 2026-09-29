@@ -1,12 +1,13 @@
 import express from 'express';
 import * as ctrl from '../controllers/auth.controller.js';
 import { verifyToken, requirePrivilege } from '../middleware/auth.middleware.js';
+import { authRateLimiter } from '../middleware/rateLimiter.middleware.js';
 
 const router = express.Router();
 
-// Public auth endpoints
-router.post('/login', ctrl.login);
-router.post('/register', ctrl.register);
+// Public auth endpoints protected by rate limiting
+router.post('/login', authRateLimiter, ctrl.login);
+router.post('/register', authRateLimiter, ctrl.register);
 router.get('/password-policy', ctrl.getPasswordPolicy);
 
 // Protected user management routes
