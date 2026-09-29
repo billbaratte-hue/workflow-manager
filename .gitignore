@@ -9,3 +9,5 @@ test-results/
 !.env.example
 portal.db*
 uploads/
+playwright-report/
+e2e/playwright-report/
