@@ -598,6 +598,23 @@ export async function syncMemoryStoresFromDb(db: ISqliteDb): Promise<void> {
                 });
             }
         }
+
+        // Sync roles (single source of truth with SQLite)
+        const dbRoles = await db.all<any>('SELECT * FROM roles ORDER BY id ASC');
+        if (dbRoles && dbRoles.length > 0) {
+            rolesDatabase.length = 0;
+            for (const r of dbRoles) {
+                rolesDatabase.push({
+                    id: Number(r.id),
+                    name: r.name,
+                    description: r.description || '',
+                    privileges: typeof r.privileges === 'string' ? JSON.parse(r.privileges) : (r.privileges || []),
+                    portalTabs: typeof r.portal_tabs === 'string' ? JSON.parse(r.portal_tabs) : (r.portal_tabs || {}),
+                    tablePermissions: typeof r.table_permissions === 'string' ? JSON.parse(r.table_permissions) : (r.table_permissions || {}),
+                    referenceVisibilityRules: typeof r.reference_visibility_rules === 'string' ? JSON.parse(r.reference_visibility_rules) : (r.reference_visibility_rules || [])
+                });
+            }
+        }
     } catch (err) {
         console.warn('syncMemoryStoresFromDb warning:', err);
     }

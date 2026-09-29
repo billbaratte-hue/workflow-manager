@@ -262,7 +262,7 @@ const rolesHelpSections: HelpSection[] = [
     {
         title: "Périmètres Géographiques & Données",
         badge: "Gouvernance",
-        description: "Restreignez ou étendez l'accès des rôles selon les sites ferroviaires, les lignes ou les zones de sûreté.",
+        description: "Restreignez ou étendez l'accès des rôles selon les sites opérationnels, les zones d'intervention ou de sûreté.",
         tips: [
             "Les rôles système fondamentaux sont protégés contre la suppression pour garantir l'intégrité de la plateforme"
         ]
@@ -280,6 +280,7 @@ export default function Roles() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeEditorTab, setActiveEditorTab] = useState<'tabs' | 'ref_visibility' | 'tables' | 'workflow_actions' | 'fields' | 'preview'>('tabs');
     const [saveSuccess, setSaveSuccess] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
     // Relational reference tables and live preview dataset
@@ -293,7 +294,16 @@ export default function Roles() {
     const [newRoleName, setNewRoleName] = useState('');
     const [newRoleDesc, setNewRoleDesc] = useState('');
     const [newRolePreset, setNewRolePreset] = useState('Demandeur');
+    const [createError, setCreateError] = useState<string | null>(null);
+    const [isCreatingRole, setIsCreatingRole] = useState(false);
     const [dynamicPortalTabs, setDynamicPortalTabs] = useState<PortalTabConfig[]>(AVAILABLE_PORTAL_TABS);
+
+    // Real-time duplicate check for role creation
+    const isDuplicateRoleName = useMemo(() => {
+        const trimmed = newRoleName.trim().toLowerCase();
+        if (!trimmed) return false;
+        return roles.some(r => r.name && r.name.trim().toLowerCase() === trimmed);
+    }, [newRoleName, roles]);
 
     // Deletion confirmation modal
     const [roleToDelete, setRoleToDelete] = useState<{ id: number; name: string } | null>(null);
@@ -718,12 +728,15 @@ export default function Roles() {
             }
 
             setSaveSuccess(true);
+            setSaveError(null);
             setIsDirty(false);
             setTimeout(() => setSaveSuccess(false), 3000);
             loadRoles();
-        } catch (err) {
+        } catch (err: any) {
             console.error("Erreur lors de la sauvegarde du rôle:", err);
-            alert("Erreur lors de la sauvegarde des modifications du rôle.");
+            const serverMsg = err.response?.data?.error;
+            setSaveError(serverMsg || "Erreur lors de la sauvegarde des modifications du rôle.");
+            setTimeout(() => setSaveError(null), 6000);
         } finally {
             setSaving(false);
         }
@@ -732,7 +745,17 @@ export default function Roles() {
     // Create a new role
     const handleCreateNewRole = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newRoleName.trim()) return;
+        setCreateError(null);
+        const trimmedName = newRoleName.trim();
+        if (!trimmedName) {
+            setCreateError("L'intitulé du rôle est obligatoire.");
+            return;
+        }
+
+        if (isDuplicateRoleName) {
+            setCreateError(`Un rôle intitulé "${trimmedName}" existe déjà. Veuillez choisir un autre intitulé.`);
+            return;
+        }
 
         let portalTabs: Record<string, boolean> = {
             catalogue: true,
@@ -799,9 +822,10 @@ export default function Roles() {
             });
         }
 
+        setIsCreatingRole(true);
         try {
             const res = await createRole({
-                name: newRoleName.trim(),
+                name: trimmedName,
                 description: newRoleDesc.trim(),
                 portalTabs,
                 tablePermissions,
@@ -811,13 +835,23 @@ export default function Roles() {
             setShowCreateModal(false);
             setNewRoleName('');
             setNewRoleDesc('');
-            loadRoles();
+            setCreateError(null);
+            await loadRoles();
             if (res.data?.role) {
                 setSelectedRole(res.data.role);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("Erreur lors de la création du rôle:", err);
-            alert("Erreur lors de la création du nouveau rôle.");
+            const serverMsg = err.response?.data?.error;
+            if (err.response?.status === 401) {
+                setCreateError("Votre session a expiré. Veuillez vous reconnecter pour créer un rôle.");
+            } else if (serverMsg) {
+                setCreateError(serverMsg);
+            } else {
+                setCreateError("Erreur lors de la création du nouveau rôle. Veuillez réessayer.");
+            }
+        } finally {
+            setIsCreatingRole(false);
         }
     };
 
@@ -886,7 +920,13 @@ export default function Roles() {
                     </button>
                     <button
                         id="btn-new-role-modal"
-                        onClick={() => setShowCreateModal(true)}
+                        onClick={() => {
+                            setCreateError(null);
+                            setNewRoleName('');
+                            setNewRoleDesc('');
+                            setNewRolePreset('Demandeur');
+                            setShowCreateModal(true);
+                        }}
                         className="px-4 py-2 bg-[#002395] hover:bg-blue-900 text-white rounded-lg text-xs font-bold flex items-center gap-2 transition shadow-xs cursor-pointer"
                     >
                         <Plus className="w-4 h-4" />
@@ -1087,6 +1127,12 @@ export default function Roles() {
                                         <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 flex items-center gap-1">
                                             <Check className="w-3.5 h-3.5 text-emerald-600" />
                                             Enregistré avec succès !
+                                        </span>
+                                    )}
+                                    {saveError && (
+                                        <span className="text-[11px] font-semibold text-red-700 bg-red-50 px-2.5 py-1 rounded border border-red-200 flex items-center gap-1">
+                                            <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                                            {saveError}
                                         </span>
                                     )}
                                     <button
@@ -1731,6 +1777,15 @@ export default function Roles() {
 
                         <form onSubmit={handleCreateNewRole} className="flex flex-col flex-1 min-h-0">
                             <div className="p-6 overflow-y-auto flex-1 space-y-4 min-h-0">
+                                {createError && (
+                                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
+                                        <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+                                        <div className="flex-1">
+                                            <p className="font-semibold">{createError}</p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-700 mb-1">
                                         Intitulé du Rôle *
@@ -1739,10 +1794,23 @@ export default function Roles() {
                                         type="text"
                                         required
                                         value={newRoleName}
-                                        onChange={e => setNewRoleName(e.target.value)}
-                                        placeholder="Ex: Auditeur Sûreté Ferroviaire"
-                                        className="w-full border border-gray-300 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-[#002395] outline-hidden"
+                                        onChange={e => {
+                                            setNewRoleName(e.target.value);
+                                            if (createError) setCreateError(null);
+                                        }}
+                                        placeholder="Ex: Auditeur Contrôle et Conformité"
+                                        className={`w-full border rounded-lg p-2.5 text-xs focus:ring-2 outline-hidden transition ${
+                                            isDuplicateRoleName
+                                                ? 'border-amber-400 focus:ring-amber-400 bg-amber-50/20'
+                                                : 'border-gray-300 focus:ring-[#002395]'
+                                        }`}
                                     />
+                                    {isDuplicateRoleName && (
+                                        <div className="flex items-center gap-1.5 text-xs text-amber-600 font-medium mt-1.5 animate-in fade-in duration-150">
+                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                                            <span>Un rôle portant cet intitulé existe déjà. Veuillez choisir un autre intitulé.</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div>
@@ -1753,7 +1821,7 @@ export default function Roles() {
                                         rows={2}
                                         value={newRoleDesc}
                                         onChange={e => setNewRoleDesc(e.target.value)}
-                                        placeholder="Ex: Contrôle de conformité et audit des accès mécatroniques..."
+                                        placeholder="Ex: Contrôle de conformité et audit des accès opérationnels..."
                                         className="w-full border border-gray-300 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-[#002395] outline-hidden"
                                     />
                                 </div>
@@ -1767,10 +1835,10 @@ export default function Roles() {
                                         onChange={e => setNewRolePreset(e.target.value)}
                                         className="w-full border border-gray-300 rounded-lg p-2.5 text-xs bg-white focus:ring-2 focus:ring-[#002395] outline-hidden"
                                     >
-                                        <option value="Demandeur">Profil Demandeur (Catalogue + Mes Demandes)</option>
-                                        <option value="Validateur">Profil Validateur Site (Corbeille + Validation)</option>
-                                        <option value="Manager">Profil Manager N+1 (Validation hiérarchique + Équipe)</option>
-                                        <option value="Administrateur">Profil Administrateur (Accès Total)</option>
+                                        <option value="Demandeur">Profil standard Demandeur (Catalogue + Mes Demandes)</option>
+                                        <option value="Validateur">Profil type Validateur (Corbeille + Circuit de validation)</option>
+                                        <option value="Manager">Profil type Manager N+1 (Validation hiérarchique + Équipe)</option>
+                                        <option value="Administrateur">Profil Administrateur (Accès Total & Sécurité RBAC)</option>
                                     </select>
                                 </div>
                             </div>
@@ -1778,16 +1846,25 @@ export default function Roles() {
                             <div className="flex justify-end gap-2 px-6 py-3.5 border-t border-gray-200 bg-gray-50 shrink-0 rounded-b-2xl">
                                 <button
                                     type="button"
-                                    onClick={() => setShowCreateModal(false)}
+                                    onClick={() => {
+                                        setShowCreateModal(false);
+                                        setCreateError(null);
+                                    }}
                                     className="px-3.5 py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 rounded-lg transition cursor-pointer"
                                 >
                                     Annuler
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 text-xs font-bold text-white bg-[#002395] hover:bg-blue-900 rounded-lg transition shadow-2xs cursor-pointer"
+                                    disabled={!newRoleName.trim() || isDuplicateRoleName || isCreatingRole}
+                                    className={`px-4 py-2 text-xs font-bold text-white rounded-lg transition shadow-2xs flex items-center gap-1.5 ${
+                                        !newRoleName.trim() || isDuplicateRoleName || isCreatingRole
+                                            ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                                            : 'bg-[#002395] hover:bg-blue-900 cursor-pointer'
+                                    }`}
                                 >
-                                    Créer le rôle
+                                    {isCreatingRole && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                                    <span>{isCreatingRole ? 'Création en cours...' : 'Créer le rôle'}</span>
                                 </button>
                             </div>
                         </form>

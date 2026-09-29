@@ -1160,7 +1160,7 @@ export let rolesDatabase: Role[] = [
     {
         id: 3,
         name: "Validateur Site",
-        description: "Contrôle technique et de sûreté ferroviaire sur site mécatronique",
+        description: "Contrôle technique et de sécurité sur site opérationnel",
         privileges: ["view_dashboard", "validate_requests", "export_data"],
         portalTabs: {
             catalogue: true,

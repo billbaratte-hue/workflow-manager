@@ -2,9 +2,9 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { usersDatabase, rolesDatabase } from '../db/store.js';
 
-// Cryptographically secure runtime secret if JWT_SECRET not provided via environment
-const defaultSecret = crypto.randomBytes(64).toString('hex');
-export const JWT_SECRET = process.env.JWT_SECRET || defaultSecret;
+// Deterministic secret in development / test mode; random cryptographic secret in production unless set via env
+const devFallbackSecret = 'workflow_manager_dev_jwt_secret_2026_nis2_compliant';
+export const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? crypto.randomBytes(64).toString('hex') : devFallbackSecret);
 
 export function resolveUserByEmail(email: string) {
     const normalized = email.trim().toLowerCase();

@@ -365,7 +365,7 @@ async function buildWordDocument() {
                         children: [
                             new TextRun({
                                 text: 'Guide Intégral & Manuel de Référence Opérationnel',
-                                italic: true,
+                                italics: true,
                                 size: 28,
                                 color: COLOR_SECONDARY,
                                 font: 'Calibri'

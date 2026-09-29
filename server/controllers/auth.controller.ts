@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { usersDatabase, rolesDatabase, userAttributesSchema, logAction } from '../db/store.js';
+import { usersDatabase, rolesDatabase, userAttributesSchema, logAction, Role } from '../db/store.js';
 import { authService } from '../services/auth.service.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { roleRepository } from '../repositories/role.repository.js';
@@ -245,97 +245,207 @@ export const getRoles = async (req: any, res: any) => {
 };
 
 export const createRole = async (req: any, res: any) => {
-    const nextId = rolesDatabase.length ? Math.max(...rolesDatabase.map(r => r.id)) + 1 : 1;
-    const newRole = {
-        id: nextId,
-        name: req.body.name || "Nouveau Rôle",
-        description: req.body.description || "",
-        privileges: Array.isArray(req.body.privileges) ? req.body.privileges : [],
-        portalTabs: req.body.portalTabs || {
-            catalogue: true,
-            'mes-demandes': true,
-            corbeille: false,
-            'historique-decisions': false,
-            'tableau-de-bord': true,
-            delegation: false,
-            admin: false
-        },
-        tablePermissions: req.body.tablePermissions || {
-            requests: { see: true, modify: true, delete: false, create: true, dataScope: 'own', allowedFields: ['general'] },
-            tables: { see: true, modify: false, delete: false, create: false, dataScope: 'all', allowedFields: ['general'] },
-            processes: { see: true, modify: false, delete: false, create: false, dataScope: 'all', allowedFields: ['general'] },
-            catalogues: { see: true, modify: false, delete: false, create: false, dataScope: 'all', allowedFields: ['general'] },
-            users: { see: false, modify: false, delete: false, create: false, dataScope: 'own', allowedFields: [] },
-            roles: { see: false, modify: false, delete: false, create: false, dataScope: 'own', allowedFields: [] },
-            syslog: { see: false, modify: false, delete: false, create: false, dataScope: 'own', allowedFields: [] }
-        },
-        referenceVisibilityRules: Array.isArray(req.body.referenceVisibilityRules) ? req.body.referenceVisibilityRules : []
-    };
-
-    // Add to in-memory database
-    rolesDatabase.push(newRole);
-
-    // Persist in SQLite
     try {
-        await roleRepository.create({
-            id: newRole.id,
-            name: newRole.name,
-            description: newRole.description,
-            privileges: newRole.privileges,
-            portalTabs: newRole.portalTabs,
-            tablePermissions: newRole.tablePermissions,
-            referenceVisibilityRules: newRole.referenceVisibilityRules
-        });
-    } catch (err) {
-        console.warn("Could not persist role in SQLite:", err);
-    }
+        const rawName = req.body.name;
+        if (!rawName || typeof rawName !== 'string' || !rawName.trim()) {
+            return res.status(400).json({ error: "L'intitulé du rôle est requis." });
+        }
 
-    logAction(req.user?.name || "Admin", req.user?.role || "Administrateur", "CREATE_ROLE", newRole.name, `Création du rôle ${newRole.name}`);
-    res.status(201).json({ success: true, role: newRole });
+        const trimmedName = rawName.trim();
+
+        // 1. Check for duplicate name (case-insensitive) in memory
+        const memDuplicate = rolesDatabase.find(r => r.name.toLowerCase() === trimmedName.toLowerCase());
+        if (memDuplicate) {
+            return res.status(400).json({ error: `Un rôle intitulé "${trimmedName}" existe déjà dans le système.` });
+        }
+
+        // 2. Check for duplicate name in SQLite
+        try {
+            const dbDuplicate = await roleRepository.getByName(trimmedName);
+            if (dbDuplicate) {
+                // Ensure memory has it synced
+                if (!rolesDatabase.some(r => r.id === dbDuplicate.id)) {
+                    rolesDatabase.push(dbDuplicate);
+                }
+                return res.status(400).json({ error: `Un rôle intitulé "${trimmedName}" existe déjà dans le système.` });
+            }
+        } catch (e) {
+            console.warn("Could not check duplicate role in SQLite:", e);
+        }
+
+        // 3. Compute safe nextId from both memory and SQLite
+        let nextId = 1;
+        try {
+            const allDbRoles = await roleRepository.getAll();
+            const maxDbId = allDbRoles.length ? Math.max(...allDbRoles.map(r => r.id)) : 0;
+            const maxMemId = rolesDatabase.length ? Math.max(...rolesDatabase.map(r => r.id)) : 0;
+            nextId = Math.max(maxDbId, maxMemId, 0) + 1;
+        } catch {
+            nextId = rolesDatabase.length ? Math.max(...rolesDatabase.map(r => r.id)) + 1 : 1;
+        }
+
+        const newRole = {
+            id: nextId,
+            name: trimmedName,
+            description: req.body.description ? String(req.body.description).trim() : "",
+            privileges: Array.isArray(req.body.privileges) ? req.body.privileges : ['view_dashboard', 'create_request'],
+            portalTabs: req.body.portalTabs || {
+                catalogue: true,
+                'mes-demandes': true,
+                corbeille: false,
+                'historique-decisions': false,
+                'tableau-de-bord': true,
+                delegation: false,
+                admin: false
+            },
+            tablePermissions: req.body.tablePermissions || {
+                requests: { see: true, modify: true, delete: false, create: true, dataScope: 'own', allowedFields: ['general'] },
+                tables: { see: true, modify: false, delete: false, create: false, dataScope: 'all', allowedFields: ['general'] },
+                processes: { see: true, modify: false, delete: false, create: false, dataScope: 'all', allowedFields: ['general'] },
+                catalogues: { see: true, modify: false, delete: false, create: false, dataScope: 'all', allowedFields: ['general'] },
+                users: { see: false, modify: false, delete: false, create: false, dataScope: 'own', allowedFields: [] },
+                roles: { see: false, modify: false, delete: false, create: false, dataScope: 'own', allowedFields: [] },
+                syslog: { see: false, modify: false, delete: false, create: false, dataScope: 'own', allowedFields: [] }
+            },
+            referenceVisibilityRules: Array.isArray(req.body.referenceVisibilityRules) ? req.body.referenceVisibilityRules : []
+        };
+
+        // 4. Persist in SQLite first
+        let createdRole: Role = newRole;
+        try {
+            createdRole = await roleRepository.create({
+                id: newRole.id,
+                name: newRole.name,
+                description: newRole.description,
+                privileges: newRole.privileges,
+                portalTabs: newRole.portalTabs,
+                tablePermissions: newRole.tablePermissions,
+                referenceVisibilityRules: newRole.referenceVisibilityRules
+            });
+        } catch (dbErr: any) {
+            console.error("Erreur lors de la persistance SQLite du rôle:", dbErr);
+            if (dbErr?.message?.includes('UNIQUE constraint failed') || dbErr?.code === 'ERR_SQLITE_ERROR') {
+                return res.status(400).json({ error: `Un rôle portant l'intitulé "${trimmedName}" existe déjà.` });
+            }
+            return res.status(500).json({ error: `Erreur interne lors de la création du rôle: ${dbErr.message || 'Erreur base de données'}` });
+        }
+
+        // 5. Update in-memory database
+        const existingIdx = rolesDatabase.findIndex(r => r.id === createdRole.id);
+        if (existingIdx >= 0) {
+            rolesDatabase[existingIdx] = createdRole;
+        } else {
+            rolesDatabase.push(createdRole);
+        }
+
+        logAction(req.user?.name || "Admin", req.user?.role || "Administrateur", "CREATE_ROLE", createdRole.name, `Création du rôle ${createdRole.name}`);
+        return res.status(201).json({ success: true, role: createdRole });
+    } catch (err: any) {
+        console.error("Erreur inattendue createRole:", err);
+        return res.status(500).json({ error: `Erreur lors de la création du rôle: ${err.message || 'Erreur serveur'}` });
+    }
 };
 
 export const updateRole = async (req: any, res: any) => {
-    const id = parseInt(req.params.id);
-    const role = rolesDatabase.find(r => r.id === id);
-    if (!role) return res.status(404).json({ error: "Rôle non trouvé" });
-
-    if (req.body.name !== undefined) role.name = req.body.name;
-    if (req.body.description !== undefined) role.description = req.body.description;
-    if (req.body.privileges !== undefined) role.privileges = req.body.privileges;
-    if (req.body.portalTabs !== undefined) role.portalTabs = req.body.portalTabs;
-    if (req.body.tablePermissions !== undefined) role.tablePermissions = req.body.tablePermissions;
-    if (req.body.referenceVisibilityRules !== undefined) role.referenceVisibilityRules = req.body.referenceVisibilityRules;
-
-    // Persist in SQLite
     try {
-        await roleRepository.update(id, {
-            name: role.name,
-            description: role.description,
-            privileges: role.privileges,
-            portalTabs: role.portalTabs,
-            tablePermissions: role.tablePermissions,
-            referenceVisibilityRules: role.referenceVisibilityRules
-        });
-    } catch (err) {
-        console.warn("Could not update role in SQLite:", err);
-    }
+        const id = parseInt(req.params.id);
+        let role = rolesDatabase.find(r => r.id === id);
+        if (!role) {
+            try {
+                const dbRole = await roleRepository.getById(id);
+                if (dbRole) {
+                    rolesDatabase.push(dbRole);
+                    role = dbRole;
+                }
+            } catch {}
+        }
 
-    logAction(req.user?.name || "Admin", req.user?.role || "Administrateur", "UPDATE_ROLE", role.name, `Mise à jour des privilèges et visibilités du rôle ${role.name}`);
-    res.json({ success: true, role });
+        if (!role) return res.status(404).json({ error: "Rôle non trouvé" });
+
+        if (req.body.name !== undefined) {
+            const trimmedName = String(req.body.name).trim();
+            if (!trimmedName) {
+                return res.status(400).json({ error: "L'intitulé du rôle ne peut pas être vide." });
+            }
+            // Check uniqueness in memory
+            const dupMem = rolesDatabase.find(r => r.id !== id && r.name.toLowerCase() === trimmedName.toLowerCase());
+            if (dupMem) {
+                return res.status(400).json({ error: `Un autre rôle portant l'intitulé "${trimmedName}" existe déjà.` });
+            }
+            // Check uniqueness in SQLite
+            try {
+                const dupDb = await roleRepository.getByName(trimmedName);
+                if (dupDb && dupDb.id !== id) {
+                    return res.status(400).json({ error: `Un autre rôle portant l'intitulé "${trimmedName}" existe déjà.` });
+                }
+            } catch {}
+
+            role.name = trimmedName;
+        }
+
+        if (req.body.description !== undefined) role.description = req.body.description;
+        if (req.body.privileges !== undefined) role.privileges = req.body.privileges;
+        if (req.body.portalTabs !== undefined) role.portalTabs = req.body.portalTabs;
+        if (req.body.tablePermissions !== undefined) role.tablePermissions = req.body.tablePermissions;
+        if (req.body.referenceVisibilityRules !== undefined) role.referenceVisibilityRules = req.body.referenceVisibilityRules;
+
+        // Persist in SQLite
+        try {
+            await roleRepository.update(id, {
+                name: role.name,
+                description: role.description,
+                privileges: role.privileges,
+                portalTabs: role.portalTabs,
+                tablePermissions: role.tablePermissions,
+                referenceVisibilityRules: role.referenceVisibilityRules
+            });
+        } catch (err: any) {
+            console.error("Could not update role in SQLite:", err);
+            if (err?.message?.includes('UNIQUE constraint failed')) {
+                return res.status(400).json({ error: `Un rôle portant l'intitulé "${role.name}" existe déjà.` });
+            }
+            return res.status(500).json({ error: `Erreur lors de la mise à jour du rôle: ${err.message}` });
+        }
+
+        logAction(req.user?.name || "Admin", req.user?.role || "Administrateur", "UPDATE_ROLE", role.name, `Mise à jour des privilèges et visibilités du rôle ${role.name}`);
+        return res.json({ success: true, role });
+    } catch (err: any) {
+        console.error("Erreur inattendue updateRole:", err);
+        return res.status(500).json({ error: `Erreur serveur: ${err.message}` });
+    }
 };
 
 export const deleteRole = async (req: any, res: any) => {
-    const id = parseInt(req.params.id);
-    const idx = rolesDatabase.findIndex(r => r.id === id);
-    if (idx > -1) rolesDatabase.splice(idx, 1);
-
     try {
-        await roleRepository.delete(id);
-    } catch (err) {
-        console.warn("Could not delete role from SQLite:", err);
-    }
+        const id = parseInt(req.params.id);
+        const role = rolesDatabase.find(r => r.id === id);
+        if (!role) return res.status(404).json({ error: "Rôle non trouvé." });
 
-    res.json({ success: true });
+        if (role.name === 'Administrateur') {
+            return res.status(400).json({ error: "Le rôle Administrateur est protégé et ne peut pas être supprimé." });
+        }
+
+        // Check if any users have this role
+        const assignedUsers = usersDatabase.filter(u => u.role === role.name || (u.roles && u.roles.includes(role.name)));
+        if (assignedUsers.length > 0) {
+            return res.status(400).json({ error: `Impossible de supprimer ce rôle car ${assignedUsers.length} utilisateur(s) y sont actuellement rattachés.` });
+        }
+
+        const idx = rolesDatabase.findIndex(r => r.id === id);
+        if (idx > -1) rolesDatabase.splice(idx, 1);
+
+        try {
+            await roleRepository.delete(id);
+        } catch (err) {
+            console.warn("Could not delete role from SQLite:", err);
+        }
+
+        logAction(req.user?.name || "Admin", req.user?.role || "Administrateur", "DELETE_ROLE", role.name, `Suppression du rôle ${role.name}`);
+        return res.json({ success: true });
+    } catch (err: any) {
+        console.error("Erreur inattendue deleteRole:", err);
+        return res.status(500).json({ error: `Erreur serveur: ${err.message}` });
+    }
 };
 
 export const getPasswordPolicy = async (_req: any, res: any) => {
