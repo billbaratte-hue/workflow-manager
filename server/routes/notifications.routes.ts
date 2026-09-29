@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(verifyToken);
 
 router.get('/', notificationsController.getNotifications);
+router.get('/stream', notificationsController.streamNotifications);
 router.get('/alerts', notificationsController.getOperationalAlerts);
 router.patch('/:id/read', notificationsController.markAsRead);
 router.post('/mark-all-read', notificationsController.markAllAsRead);

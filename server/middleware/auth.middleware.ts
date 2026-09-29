@@ -34,20 +34,21 @@ export function resolveUserByEmail(email: string) {
 
 export const verifyToken = (req: any, res: any, next: any) => {
     const authHeader = req.headers['authorization'];
-    
-    // Strict requirement: valid Authorization Bearer header
-    if (!authHeader) {
-        return res.status(401).json({ error: "Accès refusé. Token d'authentification manquant." });
+    let token: string | undefined;
+
+    if (authHeader) {
+        const parts = authHeader.split(' ');
+        if (parts.length === 2 && parts[0] === 'Bearer') {
+            token = parts[1];
+        } else {
+            return res.status(401).json({ error: "Format de token invalide. Format attendu: Bearer <token>" });
+        }
+    } else if (req.query && req.query.token) {
+        token = String(req.query.token);
     }
 
-    const parts = authHeader.split(' ');
-    if (parts.length !== 2 || parts[0] !== 'Bearer') {
-        return res.status(401).json({ error: "Format de token invalide. Format attendu: Bearer <token>" });
-    }
-
-    const token = parts[1];
     if (!token) {
-        return res.status(401).json({ error: "Format de token invalide." });
+        return res.status(401).json({ error: "Accès refusé. Token d'authentification manquant." });
     }
 
     // Strict signature verification - forged tokens or expired tokens are rejected immediately

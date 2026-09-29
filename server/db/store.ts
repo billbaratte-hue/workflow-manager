@@ -1,3 +1,8 @@
+import { EventEmitter } from 'events';
+
+export const notificationEmitter = new EventEmitter();
+notificationEmitter.setMaxListeners(250);
+
 export interface AuditLog {
     id: number;
     timestamp: string;
@@ -2166,6 +2171,11 @@ export function createNotification(notif: Omit<NotificationItem, 'id' | 'created
         ...notif
     };
     notificationsDB.unshift(newNotif);
+    try {
+        notificationEmitter.emit('new_notification', newNotif);
+    } catch (err) {
+        console.warn('Erreur notificationEmitter emit:', err);
+    }
     if (dbSyncCallback) {
         dbSyncCallback(
             'INSERT INTO notifications (id, target_user_id, target_role, target_email, type, title, message, link, reference, urgent, read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',

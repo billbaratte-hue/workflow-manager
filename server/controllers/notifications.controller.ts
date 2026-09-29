@@ -1,4 +1,4 @@
-import { notificationsDB, requestsDB } from '../db/store.js';
+import { notificationsDB, requestsDB, notificationEmitter } from '../db/store.js';
 
 /**
  * Récupère les notifications ciblées pour l'utilisateur connecté ou son rôle
@@ -165,5 +165,49 @@ export const getOperationalAlerts = (req: any, res: any) => {
     } catch (error) {
         console.error('getOperationalAlerts error:', error);
         res.status(200).json([]);
+    }
+};
+
+/**
+ * Flux temps réel Server-Sent Events (SSE) pour les notifications push instantanées
+ */
+export const streamNotifications = (req: any, res: any) => {
+    try {
+        const userId = Number(req.user?.id || req.query.user_id);
+        const userRole = String(req.user?.role || req.query.role || '');
+
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+        });
+
+        res.write(`event: connected\ndata: ${JSON.stringify({ status: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+
+        const onNotification = (notif: any) => {
+            const matches = (
+                userRole === 'Administrateur' ||
+                (notif.target_user_id && notif.target_user_id === userId) ||
+                (notif.target_role && (notif.target_role === userRole || notif.target_role === 'all'))
+            );
+            if (matches) {
+                res.write(`event: notification\ndata: ${JSON.stringify(notif)}\n\n`);
+            }
+        };
+
+        notificationEmitter.on('new_notification', onNotification);
+
+        const heartbeat = setInterval(() => {
+            res.write(': heartbeat\n\n');
+        }, 25000);
+
+        req.on('close', () => {
+            clearInterval(heartbeat);
+            notificationEmitter.off('new_notification', onNotification);
+        });
+    } catch (err) {
+        console.error('streamNotifications error:', err);
+        res.status(500).end();
     }
 };

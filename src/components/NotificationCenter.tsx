@@ -86,14 +86,45 @@ export default function NotificationCenter({ user, onNotificationClick }: Notifi
         }
     };
 
-    // Polling régulier en temps réel toutes les 12 secondes
+    // Synchronisation temps réel via Server-Sent Events (SSE) avec repli sur polling
     useEffect(() => {
+        if (!user) return;
         fetchNotifications(false);
+
+        let eventSource: EventSource | null = null;
+        const token = localStorage.getItem('token');
+        try {
+            const sseUrl = `/api/notifications/stream?token=${encodeURIComponent(token || '')}&user_id=${user.id}&role=${encodeURIComponent(user.role || '')}`;
+            eventSource = new EventSource(sseUrl);
+
+            eventSource.addEventListener('notification', (e: MessageEvent) => {
+                try {
+                    const newNotif: NotificationItem = JSON.parse(e.data);
+                    setNotifications(prev => [newNotif, ...prev.filter(n => n.id !== newNotif.id)]);
+                    setUnreadCount(prev => prev + 1);
+                    if (newNotif.urgent) {
+                        setUrgentCount(prev => prev + 1);
+                    }
+                    setToastMessage(`Alerte temps réel : ${newNotif.title}`);
+                    setTimeout(() => setToastMessage(null), 6000);
+                } catch (err) {
+                    console.warn('Erreur lecture notification SSE:', err);
+                }
+            });
+        } catch {
+            // Repli transparent sur le polling périodique
+        }
+
         const interval = setInterval(() => {
             fetchNotifications(true);
-        }, 12000);
+        }, 20000);
 
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
     }, [user]);
 
     // Fermeture du dropdown au clic à l'extérieur
