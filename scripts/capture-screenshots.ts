@@ -51,6 +51,25 @@ async function capture() {
     await page.waitForTimeout(1000);
     await page.screenshot({ path: path.join(artifactDir, 'screenshot_admin.png') });
 
+    // 7. Capture Mot de passe oublié (Modal)
+    console.log('Capturing Mot de passe oublié...');
+    await page.evaluate(() => localStorage.clear());
+    await page.goto('http://localhost:3000/login');
+    await page.waitForLoadState('networkidle');
+    await page.click('button:has-text("Mot de passe oublié ?")');
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(artifactDir, 'screenshot_forgot_password.png') });
+
+    // 8. Capture Page Réinitialisation avec token
+    console.log('Capturing Reset Password...');
+    const { passwordResetRepository } = await import('../server/repositories/password-reset.repository.js');
+    const { token } = await passwordResetRepository.createToken('admin@entreprise.fr', 60);
+    await page.goto(`http://localhost:3000/reset-password?token=${token}&email=admin%40entreprise.fr`);
+    await page.waitForLoadState('networkidle');
+    await page.fill('input[placeholder="••••••••••••"]', 'Securite2026!');
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(artifactDir, 'screenshot_reset_password.png') });
+
     await browser.close();
     console.log('Screenshots captured successfully!');
     process.exit(0);
