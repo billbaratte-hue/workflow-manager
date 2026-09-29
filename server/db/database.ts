@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
 import { usersDatabase, rolesDatabase, requestsDB, auditLogs, portalTabsDatabase, referenceTablesDatabase, adminNavDatabase, adminNavSectionsDatabase, processTemplates, formTemplatesDatabase, statusesDatabase, statusCategoriesDatabase, statusMetadataStore, businessRulesStore, ruleDomainsDatabase, delegationMap, decisionHistory, notificationsDB, registerDbSync } from './store.js';
+import { MariaDbWrapper } from './mariadb.js';
 
 export interface ISqliteDb {
     exec(sql: string): Promise<void>;
@@ -59,6 +60,22 @@ let dbInstance: ISqliteDb | null = null;
 export async function getDatabase(dbPath?: string): Promise<ISqliteDb> {
     if (dbInstance && !dbPath) {
         return dbInstance;
+    }
+
+    const engine = (process.env.DB_ENGINE || process.env.DB_TYPE || 'sqlite').toLowerCase();
+
+    if (!dbPath && (engine === 'mariadb' || engine === 'mysql')) {
+        const mariaDb = new MariaDbWrapper();
+        await mariaDb.initializeSchema();
+        dbInstance = mariaDb;
+
+        registerDbSync((sql, params) => {
+            mariaDb.run(sql, ...params).catch(err => console.warn('MariaDB background sync warning:', err));
+        });
+
+        await seedInitialData(mariaDb);
+        await syncMemoryStoresFromDb(mariaDb);
+        return mariaDb;
     }
 
     const filename = dbPath || process.env.SQLITE_DB_PATH || path.join(process.cwd(), 'portal.db');
