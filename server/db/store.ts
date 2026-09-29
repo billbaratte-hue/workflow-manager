@@ -51,6 +51,8 @@ export interface User {
     name: string;
     status: string;
     attributes: Record<string, any>;
+    password_hash?: string;
+    tenant_id?: string;
 }
 
 export interface PortalSite {

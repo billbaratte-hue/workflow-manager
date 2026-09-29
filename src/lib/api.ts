@@ -45,6 +45,10 @@ api.interceptors.response.use(
 );
 
 export const loginUser = (email: string, password?: string) => api.post('/auth/login', { email, password });
+export const requestPasswordReset = (email: string) => api.post('/auth/forgot-password', { email });
+export const verifyResetToken = (token: string, email: string) => api.get('/auth/verify-reset-token', { params: { token, email } });
+export const confirmPasswordReset = (data: { email: string; token: string; newPassword: string }) => api.post('/auth/reset-password', data);
+export const getPasswordPolicy = () => api.get('/auth/password-policy');
 export const getCategories = () => api.get('/admin/categories');
 export const createCategory = (data: any) => api.post('/admin/categories', data);
 export const updateCategory = (id: number | string, data: any) => api.patch(`/admin/categories/${id}`, data);

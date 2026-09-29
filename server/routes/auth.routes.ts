@@ -8,6 +8,9 @@ const router = express.Router();
 // Public auth endpoints protected by rate limiting
 router.post('/login', authRateLimiter, ctrl.login);
 router.post('/register', authRateLimiter, ctrl.register);
+router.post('/forgot-password', authRateLimiter, ctrl.forgotPassword);
+router.get('/verify-reset-token', ctrl.verifyResetToken);
+router.post('/reset-password', authRateLimiter, ctrl.resetPassword);
 router.get('/password-policy', ctrl.getPasswordPolicy);
 
 // Protected user management routes

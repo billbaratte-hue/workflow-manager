@@ -38,4 +38,33 @@ test.describe('Authentication & Access Security (NIS 2)', () => {
 
     await expect(page.locator('.text-red-700')).toBeVisible();
   });
+
+  test('should open forgot password modal and submit email recovery request', async ({ page }) => {
+    await page.goto('/login');
+
+    // Click "Mot de passe oublié ?"
+    await page.click('button:has-text("Mot de passe oublié ?")');
+
+    // Modal should be visible
+    await expect(page.locator('text=Procédure sécurisée par email')).toBeVisible();
+
+    // Fill email and submit
+    await page.fill('input[placeholder="collaborateur@entreprise.fr"]', 'admin@entreprise.fr');
+    await page.click('button:has-text("Envoyer le lien")');
+
+    // Confirmation message should appear
+    await expect(page.locator('text=Demande prise en compte')).toBeVisible();
+    await expect(page.locator('button:has-text("Retour à la connexion")')).toBeVisible();
+
+    // Close modal
+    await page.click('button:has-text("Retour à la connexion")');
+    await expect(page.locator('text=Procédure sécurisée par email')).not.toBeVisible();
+  });
+
+  test('should render reset password page and show error if token is missing', async ({ page }) => {
+    await page.goto('/reset-password');
+
+    await expect(page.locator('text=Lien invalide ou expiré')).toBeVisible();
+    await expect(page.locator('text=Demander un nouveau lien / Connexion')).toBeVisible();
+  });
 });

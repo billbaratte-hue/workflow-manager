@@ -5,6 +5,8 @@ import { authService } from '../services/auth.service.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { roleRepository } from '../repositories/role.repository.js';
 import { settingsRepository } from '../repositories/settings.repository.js';
+import { emailService } from '../services/email.service.js';
+import { passwordResetRepository } from '../repositories/password-reset.repository.js';
 import { JWT_SECRET } from '../middleware/auth.middleware.js';
 
 export const login = async (req: any, res: any) => {
@@ -366,6 +368,206 @@ export const getPasswordPolicy = async (_req: any, res: any) => {
             password_recovery_link_validity_days: 4,
             enforce_password_history: 1
         });
+    }
+};
+
+export const forgotPassword = async (req: any, res: any) => {
+    try {
+        const { email } = req.body;
+        if (!email || typeof email !== 'string' || !email.trim()) {
+            return res.status(400).json({ error: "L'adresse email est requise." });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // Politique de sécurité
+        const policy = await settingsRepository.getSettingValue('password_access_policy', {
+            password_recovery: true,
+            password_recovery_link_validity_days: 1
+        });
+
+        if (policy.password_recovery === false) {
+            return res.status(403).json({ error: "La réinitialisation de mot de passe en libre-service est désactivée par la politique de sécurité." });
+        }
+
+        // Validity period in minutes (default 60 minutes)
+        const validityHours = policy.password_recovery_link_validity_days
+            ? Math.min(policy.password_recovery_link_validity_days * 24, 72)
+            : 1;
+        const validityMinutes = Math.max(15, validityHours * 60);
+
+        // Recherche utilisateur (SQLite ou mémoire)
+        const user = await userRepository.findByEmail(normalizedEmail) || usersDatabase.find(u => u.email.toLowerCase() === normalizedEmail);
+
+        if (user && user.status !== 'Désactivé') {
+            const tenantId = (user as any).tenant_id || (req.headers['x-tenant-id'] as string) || 'default';
+            const { token } = await passwordResetRepository.createToken(normalizedEmail, validityMinutes, tenantId);
+
+            const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+            const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:3000';
+            const origin = req.headers.origin || `${protocol}://${host}`;
+            const resetUrl = `${origin}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`;
+
+            await emailService.sendEmail({
+                to: normalizedEmail,
+                subject: "Réinitialisation de votre mot de passe - Portail Mécatronique",
+                text: `Bonjour ${user.name},\n\nUne demande de réinitialisation de votre mot de passe a été demandée pour votre compte.\n\nVeuillez cliquer sur le lien suivant pour définir un nouveau mot de passe :\n${resetUrl}\n\nCe lien sécurisé est à usage unique et expire dans ${validityHours > 1 ? validityHours + ' heures' : '60 minutes'}.\n\nSi vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer ce message en toute sécurité.\n\nCordialement,\nL'équipe Sécurité & Support Opérationnel`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+                        <div style="text-align: center; margin-bottom: 24px;">
+                            <span style="background-color: #002395; color: #ffffff; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: bold;">Portail Mécatronique</span>
+                            <h2 style="color: #0f172a; margin-top: 16px; margin-bottom: 8px;">Réinitialisation de mot de passe</h2>
+                            <p style="color: #64748b; font-size: 14px; margin: 0;">Plateforme Sécurisée & Habilitations</p>
+                        </div>
+                        <p style="color: #334155; font-size: 15px; line-height: 1.6;">Bonjour <strong>${user.name}</strong>,</p>
+                        <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+                            Une demande de réinitialisation de votre mot de passe a été formulée pour votre adresse <strong>${normalizedEmail}</strong>.
+                        </p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${resetUrl}" style="background-color: #002395; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(0, 35, 149, 0.2);">
+                                Définir un nouveau mot de passe
+                            </a>
+                        </div>
+                        <p style="color: #64748b; font-size: 13px; line-height: 1.5;">
+                            Si le bouton ci-dessus ne fonctionne pas, copiez-collez l'adresse suivante dans votre navigateur :<br/>
+                            <a href="${resetUrl}" style="color: #002395; word-break: break-all;">${resetUrl}</a>
+                        </p>
+                        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+                        <div style="background-color: #f8fafc; border-left: 4px solid #002395; padding: 12px 16px; border-radius: 4px; font-size: 12px; color: #475569;">
+                            <strong>Garantie de Sécurité (NIS 2) :</strong> Ce lien est strictement personnel, à usage unique et expirera dans ${validityHours > 1 ? validityHours + ' heures' : '60 minutes'}. Si vous n'êtes pas à l'origine de cette demande, votre compte reste parfaitement protégé et aucune action n'est requise.
+                        </div>
+                    </div>
+                `
+            });
+
+            logAction(user.name, user.role, 'PASSWORD_RESET_REQUESTED', normalizedEmail, `Demande de réinitialisation de mot de passe générée pour ${normalizedEmail}`);
+        }
+
+        // NIS 2 Anti-enumeration: Toujours renvoyer un statut 200 générique
+        return res.status(200).json({
+            success: true,
+            message: "Si cette adresse email est associée à un compte actif, un lien de réinitialisation sécurisé vous a été envoyé par email."
+        });
+    } catch (err: any) {
+        console.error("Erreur lors de la demande de réinitialisation de mot de passe:", err);
+        return res.status(500).json({ error: "Une erreur est survenue lors du traitement de la demande." });
+    }
+};
+
+export const verifyResetToken = async (req: any, res: any) => {
+    try {
+        const email = (req.query.email as string || '').trim().toLowerCase();
+        const token = (req.query.token as string || '').trim();
+
+        if (!email || !token) {
+            return res.status(400).json({ valid: false, error: "Identifiants de vérification manquants." });
+        }
+
+        const tenantId = (req.headers['x-tenant-id'] as string) || 'default';
+        const result = await passwordResetRepository.verifyToken(email, token, tenantId);
+
+        if (!result.valid) {
+            return res.status(400).json({ valid: false, error: result.reason || "Lien invalide ou expiré." });
+        }
+
+        return res.status(200).json({
+            valid: true,
+            email
+        });
+    } catch (err: any) {
+        console.error("Erreur lors de la validation du token de réinitialisation:", err);
+        return res.status(500).json({ valid: false, error: "Erreur serveur lors de la validation du lien." });
+    }
+};
+
+export const resetPassword = async (req: any, res: any) => {
+    try {
+        const { email, token, newPassword } = req.body;
+        if (!email || !token || !newPassword) {
+            return res.status(400).json({ error: "L'adresse email, le jeton de sécurité et le nouveau mot de passe sont obligatoires." });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+        const tenantId = (req.headers['x-tenant-id'] as string) || 'default';
+
+        // 1. Vérification de la validité du token
+        const check = await passwordResetRepository.verifyToken(normalizedEmail, token.trim(), tenantId);
+        if (!check.valid || !check.record) {
+            return res.status(400).json({ error: check.reason || "Ce lien de réinitialisation est invalide ou a expiré." });
+        }
+
+        // 2. Recherche du compte utilisateur
+        let user = await userRepository.findByEmail(normalizedEmail);
+        const memUser = usersDatabase.find(u => u.email.toLowerCase() === normalizedEmail);
+
+        if (!user && !memUser) {
+            return res.status(404).json({ error: "Utilisateur introuvable." });
+        }
+
+        // 3. Validation de la politique de sécurité des mots de passe
+        const policy = await settingsRepository.getSettingValue('password_access_policy', {
+            password_min_length: 5,
+            password_max_length: 15,
+            uppercase_required: true,
+            lowercase_required: true,
+            special_char_required: true,
+            number_required: true,
+            enforce_password_history: 1
+        });
+
+        if (newPassword.length < (policy.password_min_length || 5)) {
+            return res.status(400).json({ error: `Le mot de passe doit comporter au moins ${policy.password_min_length || 5} caractères.` });
+        }
+        if (newPassword.length > (policy.password_max_length || 15)) {
+            return res.status(400).json({ error: `Le mot de passe ne doit pas dépasser ${policy.password_max_length || 15} caractères.` });
+        }
+        if (policy.uppercase_required && !/[A-Z]/.test(newPassword)) {
+            return res.status(400).json({ error: "Le mot de passe doit contenir au moins une lettre majuscule." });
+        }
+        if (policy.lowercase_required && !/[a-z]/.test(newPassword)) {
+            return res.status(400).json({ error: "Le mot de passe doit contenir au moins une lettre minuscule." });
+        }
+        if (policy.number_required && !/[0-9]/.test(newPassword)) {
+            return res.status(400).json({ error: "Le mot de passe doit contenir au moins un chiffre." });
+        }
+        if (policy.special_char_required && !/[^A-Za-z0-9]/.test(newPassword)) {
+            return res.status(400).json({ error: "Le mot de passe doit contenir au moins un caractère spécial." });
+        }
+
+        // Vérification historique : ne pas réutiliser le mot de passe actuel si enforce_password_history actif
+        const currentHash = user?.password_hash || (memUser as any)?.password_hash;
+        if (currentHash && await userRepository.verifyPassword(newPassword, currentHash)) {
+            return res.status(400).json({ error: "Le nouveau mot de passe doit être différent du mot de passe actuel." });
+        }
+
+        // 4. Mise à jour dans la base de données
+        let updatedEntity: any = null;
+        if (user) {
+            updatedEntity = await userRepository.update(user.id, { password: newPassword });
+        }
+
+        // 5. Synchronisation de la base mémoire
+        if (memUser) {
+            const newHash = updatedEntity?.password_hash || (await import('bcryptjs')).default.hashSync(newPassword, 10);
+            memUser.password_hash = newHash;
+        }
+
+        // 6. Consommation du jeton et invalidation des autres jetons de cet utilisateur
+        await passwordResetRepository.consumeToken(check.record.id);
+        await passwordResetRepository.invalidateAllForEmail(normalizedEmail);
+
+        // 7. Audit log & notification
+        const userName = user?.name || memUser?.name || normalizedEmail;
+        const userRole = user?.role || memUser?.role || 'Demandeur';
+        logAction(userName, userRole, 'PASSWORD_RESET_SUCCESS', normalizedEmail, `Réinitialisation réussie du mot de passe pour ${normalizedEmail}`);
+
+        return res.status(200).json({
+            success: true,
+            message: "Votre mot de passe a été mis à jour avec succès. Vous pouvez maintenant vous connecter."
+        });
+    } catch (err: any) {
+        console.error("Erreur lors de la réinitialisation du mot de passe:", err);
+        return res.status(500).json({ error: "Une erreur est survenue lors de la réinitialisation du mot de passe." });
     }
 };
 

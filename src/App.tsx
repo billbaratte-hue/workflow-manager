@@ -23,6 +23,7 @@ import WorkflowStateMachine from './pages/WorkflowStateMachine';
 import AdminWorkflowStudio from './pages/AdminWorkflowStudio';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ResetPassword from './pages/ResetPassword';
 import EspaceDemandeur from './pages/EspaceDemandeur';
 import ConsoleNationale from './pages/ConsoleNationale';
 import Regie from './pages/Regie';
@@ -360,13 +361,19 @@ function AuthenticatedApp({ user, onLogout }: { user: any; onLogout: () => void 
 
 function UnauthenticatedApp({ onLoginSuccess }: { onLoginSuccess: (user: any) => void }) {
     const location = useLocation();
-    const [authMode, setAuthMode] = useState<'login' | 'register'>(
-        window.location.pathname === '/register' ? 'register' : 'login'
-    );
+    const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot-password'>(() => {
+        if (typeof window !== 'undefined') {
+            if (window.location.pathname === '/register') return 'register';
+            if (window.location.pathname === '/forgot-password') return 'forgot-password';
+        }
+        return 'login';
+    });
 
     useEffect(() => {
         if (location.pathname === '/register') {
             setAuthMode('register');
+        } else if (location.pathname === '/forgot-password') {
+            setAuthMode('forgot-password');
         } else if (location.pathname === '/login') {
             setAuthMode('login');
         }
@@ -384,6 +391,25 @@ function UnauthenticatedApp({ onLoginSuccess }: { onLoginSuccess: (user: any) =>
                 }
             />
             <Route
+                path="/reset-password"
+                element={
+                    <ResetPassword
+                        onNavigateToLogin={() => setAuthMode('login')}
+                    />
+                }
+            />
+            <Route
+                path="/forgot-password"
+                element={
+                    <Login
+                        onLoginSuccess={onLoginSuccess}
+                        onNavigateToRegister={() => setAuthMode('register')}
+                        onNavigateToForgotPassword={() => setAuthMode('forgot-password')}
+                        initialShowForgotPassword={true}
+                    />
+                }
+            />
+            <Route
                 path="*"
                 element={
                     authMode === 'register' ? (
@@ -395,6 +421,8 @@ function UnauthenticatedApp({ onLoginSuccess }: { onLoginSuccess: (user: any) =>
                         <Login
                             onLoginSuccess={onLoginSuccess}
                             onNavigateToRegister={() => setAuthMode('register')}
+                            onNavigateToForgotPassword={() => setAuthMode('forgot-password')}
+                            initialShowForgotPassword={authMode === 'forgot-password'}
                         />
                     )
                 }

@@ -487,6 +487,23 @@ async function initializeSchema(db: ISqliteDb): Promise<void> {
         );
     `);
 
+    // 22. Password Resets table (Sécurité & Réinitialisation par email - NIS 2)
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            tenant_id TEXT DEFAULT 'default'
+        );
+    `);
+    try {
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_resets(token_hash);`);
+    } catch {}
+
     // Add process, form, demandeur fields to requests table if missing
     try {
         await db.exec(`ALTER TABLE requests ADD COLUMN process_id INTEGER;`);
@@ -518,7 +535,8 @@ async function initializeSchema(db: ISqliteDb): Promise<void> {
         'users', 'roles', 'requests', 'audit_logs', 'reference_tables',
         'system_settings', 'process_templates', 'form_templates',
         'custom_statuses', 'status_categories', 'business_rules',
-        'return_contracts', 'delegations', 'decision_history', 'notifications'
+        'return_contracts', 'delegations', 'decision_history', 'notifications',
+        'password_resets'
     ];
     for (const tName of tablesForTenant) {
         try {

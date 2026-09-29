@@ -295,7 +295,18 @@ CREATE TABLE IF NOT EXISTS return_contracts (
     updated_at VARCHAR(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 19. Index de Recherche Rapide
+-- 19. Réinitialisation de Mots de Passe Sécurisée (NIS 2)
+CREATE TABLE IF NOT EXISTS password_resets (
+    id VARCHAR(191) PRIMARY KEY,
+    email VARCHAR(191) NOT NULL,
+    token_hash VARCHAR(191) NOT NULL,
+    expires_at VARCHAR(100) NOT NULL,
+    used TINYINT NOT NULL DEFAULT 0,
+    created_at VARCHAR(100) NOT NULL,
+    tenant_id VARCHAR(191) DEFAULT 'default'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 20. Index de Recherche Rapide
 CREATE INDEX idx_requests_reference ON requests(reference);
 CREATE INDEX idx_requests_status ON requests(status);
 CREATE INDEX idx_requests_beneficiaire ON requests(beneficiaire_id);
@@ -303,5 +314,7 @@ CREATE INDEX idx_requests_site ON requests(site_id);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_audit_timestamp ON audit_logs(timestamp);
 CREATE INDEX idx_return_contracts_beneficiaire ON return_contracts(beneficiaire_id);
+CREATE INDEX idx_password_resets_email ON password_resets(email);
+CREATE INDEX idx_password_resets_token ON password_resets(token_hash);
 
 SET FOREIGN_KEY_CHECKS = 1;

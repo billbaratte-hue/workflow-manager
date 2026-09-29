@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { loginUser } from '../lib/api';
+import { loginUser, requestPasswordReset } from '../lib/api';
 
 interface LoginProps {
     onLoginSuccess: (user: any) => void;
     onNavigateToRegister?: () => void;
+    onNavigateToForgotPassword?: () => void;
+    initialShowForgotPassword?: boolean;
 }
 
 const PRESET_ACCOUNTS = [
@@ -14,12 +16,37 @@ const PRESET_ACCOUNTS = [
     { email: 'validateur@entreprise.fr', role: 'Validateur Site', name: 'Valérie Validateur', icon: 'fas fa-check-double', color: 'border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100' },
 ];
 
-export default function Login({ onLoginSuccess, onNavigateToRegister }: LoginProps) {
+export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigateToForgotPassword, initialShowForgotPassword }: LoginProps) {
     const [email, setEmail] = useState('admin@entreprise.fr');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // État Récupération Mot de passe oublié
+    const [showForgotPassword, setShowForgotPassword] = useState(initialShowForgotPassword || false);
+    const [forgotEmail, setForgotEmail] = useState('');
+    const [forgotLoading, setForgotLoading] = useState(false);
+    const [forgotSuccess, setForgotSuccess] = useState(false);
+    const [forgotMessage, setForgotMessage] = useState('');
+    const [forgotError, setForgotError] = useState('');
+
+    const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setForgotLoading(true);
+        setForgotError('');
+        setForgotMessage('');
+        try {
+            const targetEmail = (forgotEmail || email || '').trim();
+            const res = await requestPasswordReset(targetEmail);
+            setForgotSuccess(true);
+            setForgotMessage(res.data.message || "Si cette adresse correspond à un compte actif, un lien de réinitialisation sécurisé vous a été envoyé par email.");
+        } catch (err: any) {
+            setForgotError(err.response?.data?.error || "Une erreur est survenue lors de l'envoi de la demande.");
+        } finally {
+            setForgotLoading(false);
+        }
+    };
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -105,6 +132,22 @@ export default function Login({ onLoginSuccess, onNavigateToRegister }: LoginPro
                             <label className="block text-xs font-semibold text-gray-700">
                                 Mot de passe
                             </label>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setForgotEmail(email);
+                                    setShowForgotPassword(true);
+                                    setForgotSuccess(false);
+                                    setForgotError('');
+                                    setForgotMessage('');
+                                    if (onNavigateToForgotPassword) {
+                                        onNavigateToForgotPassword();
+                                    }
+                                }}
+                                className="text-xs font-medium text-[#002395] hover:underline cursor-pointer bg-transparent border-none p-0"
+                            >
+                                Mot de passe oublié ?
+                            </button>
                         </div>
                         <div className="relative">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
@@ -192,6 +235,114 @@ export default function Login({ onLoginSuccess, onNavigateToRegister }: LoginPro
                     Plateforme certifiée ISO 27001 / NIS 2 — Accès strictement réservé aux agents et prestataires habilités.
                 </div>
             </div>
+
+            {/* Modal Réinitialisation Mot de passe oublié */}
+            {showForgotPassword && (
+                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#002395] flex items-center justify-center font-bold">
+                                    <i className="fas fa-key text-xs"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-900">Mot de passe oublié</h3>
+                                    <p className="text-[11px] text-slate-500">Procédure sécurisée par email</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowForgotPassword(false)}
+                                className="text-slate-400 hover:text-slate-600 rounded-lg p-1 transition cursor-pointer"
+                                title="Fermer"
+                            >
+                                <i className="fas fa-times text-sm"></i>
+                            </button>
+                        </div>
+
+                        {forgotSuccess ? (
+                            <div className="mt-4 space-y-4">
+                                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex gap-3 items-start">
+                                    <i className="fas fa-check-circle text-emerald-600 text-base mt-0.5 shrink-0"></i>
+                                    <div className="space-y-1">
+                                        <p className="font-bold text-emerald-900">Demande prise en compte</p>
+                                        <p className="leading-relaxed">{forgotMessage}</p>
+                                    </div>
+                                </div>
+                                <p className="text-[11px] text-slate-500 leading-relaxed">
+                                    Vérifiez votre boîte de réception ainsi que vos courriers indésirables (spams). Le lien envoyé est à usage unique et valable 1 heure.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowForgotPassword(false)}
+                                    className="w-full bg-[#002395] text-white py-2.5 px-4 rounded-lg font-semibold text-xs hover:bg-blue-900 transition shadow-xs cursor-pointer"
+                                >
+                                    Retour à la connexion
+                                </button>
+                            </div>
+                        ) : (
+                            <form onSubmit={handleForgotPasswordSubmit} className="mt-4 space-y-4">
+                                <p className="text-xs text-slate-600 leading-relaxed">
+                                    Indiquez votre adresse email professionnelle. Si un compte actif y est associé, nous vous transmettrons un lien sécurisé permettant de réinitialiser votre mot de passe.
+                                </p>
+
+                                {forgotError && (
+                                    <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex gap-2 items-center">
+                                        <i className="fas fa-exclamation-circle text-red-500 shrink-0"></i>
+                                        <span>{forgotError}</span>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                        Adresse email professionnelle
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                            <i className="fas fa-envelope text-xs"></i>
+                                        </span>
+                                        <input
+                                            type="email"
+                                            value={forgotEmail}
+                                            onChange={e => setForgotEmail(e.target.value)}
+                                            required
+                                            placeholder="collaborateur@entreprise.fr"
+                                            className="block w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-[#002395] focus:border-[#002395] transition"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowForgotPassword(false)}
+                                        className="flex-1 py-2 px-3 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={forgotLoading}
+                                        className="flex-1 bg-[#002395] text-white py-2 px-3 rounded-lg text-xs font-semibold hover:bg-blue-900 transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                                    >
+                                        {forgotLoading ? (
+                                            <>
+                                                <i className="fas fa-spinner fa-spin text-xs"></i>
+                                                <span>Envoi...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <i className="fas fa-paper-plane text-xs"></i>
+                                                <span>Envoyer le lien</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
