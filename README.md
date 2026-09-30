@@ -16,9 +16,11 @@ Plateforme d'entreprise de gouvernance, de supervision et d'orchestration des de
 - **Sécurité NIS 2 & Piste d'Audit Immuable** :
   - Journalisation cryptographique syslog des événements sensibles.
   - Génération de bordereaux PDF scellés par empreinte SHA-256.
-  - Protection anti-brute-force sur l'authentification (rate limiting).
-  - Contrôle d'accès granulaire RBAC (Administrateur, Validateur de Site, Responsable d'Équipe, Régie Matérielle, Collaborateur).
+  - Protection anti-brute-force sur l'authentification (rate limiting strict) et politique de complexité des mots de passe.
+  - Récupération sécurisée de mot de passe par email via jetons cryptographiques horodatés (validité 4 jours).
+  - Contrôle d'accès granulaire RBAC avec détection temps réel des doublons (Administrateur, Validateur de Site, Responsable d'Équipe, Régie Matérielle, Collaborateur).
 - **Régie Matérielle & Console Nationale** : Poste de contrôle des stocks de clés/cylindres, programmation, télé-révocation d'urgence et supervision nationale temps réel.
+- **Documentation Intégrale** : Guide complet opérationnel disponible au format Word `.docx` (`Workflow_Manager_Guide_Complet.docx`) et Markdown.
 
 ---
 
@@ -28,8 +30,8 @@ Plateforme d'entreprise de gouvernance, de supervision et d'orchestration des de
 - **Backend API** : Node.js 22, Express, JWT, bcryptjs, Nodemailer (SMTP), jsPDF.
 - **Bases de Données** : SQLite (`node:sqlite`) & MariaDB 11 (`mysql2`).
 - **Tests & Assurance Qualité** :
-  - **Vitest** : 129 tests unitaires et d'intégration (couverture des services, sécurité, référentiels).
-  - **Playwright** : 11 tests end-to-end (parcours demandeur, accessibilité RGAA, administration).
+  - **Vitest** : 145 tests unitaires et d'intégration (couverture des services, sécurité NIS 2, référentiels, RBAC, réinitialisation de mot de passe).
+  - **Playwright** : 13 tests end-to-end (parcours demandeur, accessibilité RGAA, administration, authentification et récupération).
 - **Conteneurisation** : Dockerfile multi-stage (Node 22 Alpine) et Docker Compose.
 - **CI/CD** : Pipeline GitHub Actions automatisé sur chaque commit/PR.
 
