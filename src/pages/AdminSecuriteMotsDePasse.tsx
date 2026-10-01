@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import TwoFactorManager from '../components/TwoFactorManager';
 
 export interface PasswordAccessSettings {
     password_min_length: number;
@@ -56,8 +57,8 @@ const DEFAULT_RETENTION_POLICY: DataRetentionSettings = {
 export default function AdminSecuriteMotsDePasse() {
     const [searchParams, setSearchParams] = useSearchParams();
     const tabParam = searchParams.get('tab');
-    const [activeTab, setActiveTab] = useState<'passwords' | 'retention'>(
-        tabParam === 'retention' ? 'retention' : 'passwords'
+    const [activeTab, setActiveTab] = useState<'passwords' | 'retention' | 'two_factor'>(
+        tabParam === 'retention' ? 'retention' : (tabParam === '2fa' || tabParam === 'two_factor' ? 'two_factor' : 'passwords')
     );
     const [passwordSettings, setPasswordSettings] = useState<PasswordAccessSettings>(DEFAULT_PASSWORD_POLICY);
     const [retentionSettings, setRetentionSettings] = useState<DataRetentionSettings>(DEFAULT_RETENTION_POLICY);
@@ -73,12 +74,12 @@ export default function AdminSecuriteMotsDePasse() {
     const token = localStorage.getItem('token');
 
     useEffect(() => {
-        if (tabParam === 'retention' || tabParam === 'passwords') {
-            setActiveTab(tabParam);
+        if (tabParam === 'retention' || tabParam === 'passwords' || tabParam === 'two_factor' || tabParam === '2fa') {
+            setActiveTab(tabParam === '2fa' ? 'two_factor' : (tabParam as any));
         }
     }, [tabParam]);
 
-    const handleTabChange = (tab: 'passwords' | 'retention') => {
+    const handleTabChange = (tab: 'passwords' | 'retention' | 'two_factor') => {
         setActiveTab(tab);
         setSearchParams({ tab });
     };
@@ -320,6 +321,20 @@ export default function AdminSecuriteMotsDePasse() {
                     <i className="fas fa-database"></i>
                     <span>Gestion de la Rétention & RGPD</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-800 font-mono">Cycle de vie</span>
+                </button>
+
+                <button
+                    data-testid="tab-2fa"
+                    onClick={() => handleTabChange('two_factor')}
+                    className={`pb-3 px-2 text-sm font-bold flex items-center gap-2 border-b-2 transition cursor-pointer ${
+                        activeTab === 'two_factor'
+                            ? 'border-[#002395] text-[#002395]'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    <i className="fas fa-qrcode"></i>
+                    <span>Double Authentification (2FA / TOTP)</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono">RFC 6238</span>
                 </button>
             </div>
 
@@ -1071,6 +1086,11 @@ export default function AdminSecuriteMotsDePasse() {
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* SECTION 3 : DOUBLE AUTHENTIFICATION (2FA / TOTP) */}
+                    {activeTab === 'two_factor' && (
+                        <TwoFactorManager />
                     )}
                 </>
             )}

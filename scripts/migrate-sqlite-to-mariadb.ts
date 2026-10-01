@@ -57,7 +57,8 @@ async function runMigration() {
         'return_contracts',
         'delegations',
         'decision_history',
-        'notifications'
+        'notifications',
+        'password_resets'
     ];
 
     let totalMigrated = 0;

@@ -8,6 +8,7 @@ import { settingsRepository } from '../repositories/settings.repository.js';
 import { emailService } from '../services/email.service.js';
 import { passwordResetRepository } from '../repositories/password-reset.repository.js';
 import { JWT_SECRET } from '../middleware/auth.middleware.js';
+import { TwoFactorService } from '../services/twoFactor.service.js';
 
 export const login = async (req: any, res: any) => {
     try {
@@ -21,6 +22,14 @@ export const login = async (req: any, res: any) => {
 
         try {
             const authResult = await authService.authenticate(email.trim(), password);
+            if (authResult.require2FA) {
+                return res.status(200).json({
+                    message: "Authentification à deux facteurs requise",
+                    require2FA: true,
+                    tempToken: authResult.tempToken,
+                    user: authResult.user
+                });
+            }
             return res.status(200).json({
                 message: "Connexion réussie",
                 token: authResult.token,
@@ -680,4 +689,166 @@ export const resetPassword = async (req: any, res: any) => {
         return res.status(500).json({ error: "Une erreur est survenue lors de la réinitialisation du mot de passe." });
     }
 };
+
+/**
+ * Validates a 2FA TOTP code or backup code during the login flow
+ */
+export const verify2FA = async (req: any, res: any) => {
+    try {
+        const { tempToken, code } = req.body;
+        if (!tempToken || !code) {
+            return res.status(400).json({ error: "Jeton temporaire et code de vérification requis." });
+        }
+
+        const session = await authService.verify2FA(tempToken, code);
+        return res.status(200).json({
+            message: "Authentification 2FA réussie",
+            token: session.token,
+            user: session.user
+        });
+    } catch (err: any) {
+        return res.status(401).json({ error: err.message || "Code 2FA invalide." });
+    }
+};
+
+/**
+ * Generates TOTP secret, QR code, and backup recovery codes for 2FA enrollment
+ */
+export const setup2FA = async (req: any, res: any) => {
+    try {
+        const userId = req.user?.id;
+        const user = await userRepository.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: "Utilisateur introuvable." });
+        }
+
+        const setupData = await TwoFactorService.generateSetup(user.email, 'Workflow Manager');
+        return res.json({
+            secret: setupData.secret,
+            otpauthUrl: setupData.otpauthUrl,
+            qrCodeDataUrl: setupData.qrCodeDataUrl,
+            backupCodes: setupData.backupCodes
+        });
+    } catch (err: any) {
+        console.error("Erreur génération 2FA setup:", err);
+        return res.status(500).json({ error: "Erreur lors de la configuration 2FA." });
+    }
+};
+
+/**
+ * Confirms and activates 2FA on the authenticated user's account
+ */
+export const enable2FA = async (req: any, res: any) => {
+    try {
+        const userId = req.user?.id;
+        const { secret, code, backupCodes } = req.body;
+
+        if (!secret || !code) {
+            return res.status(400).json({ error: "Clé secrète et code de confirmation requis." });
+        }
+
+        const isValid = TwoFactorService.verifyTOTP(secret, code);
+        if (!isValid) {
+            return res.status(400).json({ error: "Code de vérification invalide. Vérifiez l'heure de votre appareil." });
+        }
+
+        const user = await userRepository.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: "Utilisateur introuvable." });
+        }
+
+        const hashedCodes = Array.isArray(backupCodes)
+            ? backupCodes.map((c: string) => TwoFactorService.hashBackupCode(c))
+            : [];
+
+        const updatedAttrs = {
+            ...(user.attributes || {}),
+            two_factor_enabled: true,
+            two_factor_secret: secret,
+            two_factor_backup_codes: hashedCodes,
+            two_factor_enabled_at: new Date().toISOString()
+        };
+
+        await userRepository.update(user.id, { attributes: updatedAttrs });
+
+        // Sync in-memory store
+        const memUser = usersDatabase.find(u => u.id === user.id);
+        if (memUser) {
+            memUser.attributes = updatedAttrs;
+        }
+
+        logAction(
+            user.name,
+            user.role,
+            "ENABLE_2FA",
+            user.email,
+            "Activation de l'authentification à deux facteurs (2FA/TOTP)"
+        );
+
+        return res.json({
+            success: true,
+            message: "Authentification à deux facteurs activée avec succès.",
+            user: { ...user, attributes: updatedAttrs }
+        });
+    } catch (err: any) {
+        console.error("Erreur activation 2FA:", err);
+        return res.status(500).json({ error: "Erreur lors de l'activation 2FA." });
+    }
+};
+
+/**
+ * Disables 2FA on the authenticated user's account (requires current password verification)
+ */
+export const disable2FA = async (req: any, res: any) => {
+    try {
+        const userId = req.user?.id;
+        const { password } = req.body;
+
+        if (!password) {
+            return res.status(400).json({ error: "Mot de passe requis pour désactiver le 2FA." });
+        }
+
+        const user = await userRepository.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: "Utilisateur introuvable." });
+        }
+
+        const isMatch = await userRepository.verifyPassword(password, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({ error: "Mot de passe incorrect." });
+        }
+
+        const updatedAttrs = { ...(user.attributes || {}) };
+        delete updatedAttrs.two_factor_enabled;
+        delete updatedAttrs.two_factor_secret;
+        delete updatedAttrs.two_factor_backup_codes;
+        delete updatedAttrs.two_factor_enabled_at;
+
+        await userRepository.update(user.id, { attributes: updatedAttrs });
+
+        // Sync in-memory store
+        const memUser = usersDatabase.find(u => u.id === user.id);
+        if (memUser) {
+            memUser.attributes = updatedAttrs;
+        }
+
+        logAction(
+            user.name,
+            user.role,
+            "DISABLE_2FA",
+            user.email,
+            "Désactivation de l'authentification à deux facteurs (2FA/TOTP)"
+        );
+
+        return res.json({
+            success: true,
+            message: "Authentification à deux facteurs désactivée.",
+            user: { ...user, attributes: updatedAttrs }
+        });
+    } catch (err: any) {
+        console.error("Erreur désactivation 2FA:", err);
+        return res.status(500).json({ error: "Erreur lors de la désactivation 2FA." });
+    }
+};
+
 

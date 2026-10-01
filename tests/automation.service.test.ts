@@ -6,7 +6,6 @@ import {
     processTemplates,
     formTemplatesDatabase,
     businessRulesStore,
-    auditLogsDatabase,
     ProcessTemplate
 } from '../server/db/store.js';
 
@@ -45,7 +44,7 @@ describe('AutomationService & SLA Watchdog Daemon (NIS 2 & Enterprise SLA Govern
 
         requestsDB.push(testReq);
 
-        const stats = await AutomationService.runCycle(false);
+        const stats = await AutomationService.runCycle({ dryRun: false });
         expect(stats.breachedCount).toBeGreaterThanOrEqual(1);
 
         const foundDetail = stats.details.find(d => d.reference === 'REQ-SLA-TEST-01');
@@ -85,7 +84,7 @@ describe('AutomationService & SLA Watchdog Daemon (NIS 2 & Enterprise SLA Govern
 
         requestsDB.push(testReq);
 
-        const stats = await AutomationService.runCycle(false);
+        const stats = await AutomationService.runCycle({ dryRun: false });
         const foundDetail = stats.details.find(d => d.reference === 'REQ-SLA-WARN-01');
         expect(foundDetail).toBeDefined();
         expect(foundDetail?.isWarning).toBe(true);
@@ -151,7 +150,6 @@ describe('ProcessPackageService (Export & Import Portable Process Packages)', ()
                     order: 1,
                     name: 'Validation N+1',
                     validator_role: 'Manager',
-                    status: 'pending',
                     sla_hours: 24
                 }
             ],

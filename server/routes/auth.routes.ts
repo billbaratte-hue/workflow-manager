@@ -12,6 +12,12 @@ router.post('/forgot-password', authRateLimiter, ctrl.forgotPassword);
 router.get('/verify-reset-token', ctrl.verifyResetToken);
 router.post('/reset-password', authRateLimiter, ctrl.resetPassword);
 router.get('/password-policy', ctrl.getPasswordPolicy);
+router.post('/2fa/verify', authRateLimiter, ctrl.verify2FA);
+
+// Two-Factor Authentication (2FA / TOTP) user management
+router.post('/2fa/setup', verifyToken, ctrl.setup2FA);
+router.post('/2fa/enable', verifyToken, ctrl.enable2FA);
+router.post('/2fa/disable', verifyToken, ctrl.disable2FA);
 
 // Protected user management routes
 router.get('/users', verifyToken, ctrl.getUsers);

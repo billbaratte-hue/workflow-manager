@@ -405,4 +405,16 @@ export const testSiemWebhook = () => api.post('/admin/automation/siem-test');
 export const exportProcessPackage = (id: number | string) => api.get(`/admin/processus/${id}/export-package`);
 export const importProcessPackage = (pkg: any) => api.post('/admin/processus/import-package', pkg);
 
+// ==============================================================================
+// Épique 4 : Double Authentification 2FA / TOTP (NIS 2)
+// ==============================================================================
+export const verify2FALogin = (tempToken: string, code: string) =>
+    api.post('/auth/2fa/verify', { tempToken, code });
+export const setup2FA = () =>
+    api.post('/auth/2fa/setup');
+export const enable2FA = (data: { secret: string; code: string; backupCodes?: string[] }) =>
+    api.post('/auth/2fa/enable', data);
+export const disable2FA = (password: string) =>
+    api.post('/auth/2fa/disable', { password });
+
 export default api;

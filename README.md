@@ -14,6 +14,7 @@ Plateforme d'entreprise de gouvernance, de supervision et d'orchestration des de
   - Outil de migration automatisée : `npx tsx scripts/migrate-sqlite-to-mariadb.ts`.
 - **Temps Réel & Notifications (SSE)** : Flux Server-Sent Events (SSE) poussant instantanément les alertes et décisions de validation aux utilisateurs connectés.
 - **Sécurité NIS 2 & Piste d'Audit Immuable** :
+  - **Double Authentification 2FA / TOTP (RFC 6238 / RFC 4226)** : Assistant de configuration avec QR Code haute résolution, compatibilité native Google Authenticator, Microsoft Authenticator & FreeOTP, tolérance d'horloge (clock drift), et 8 codes de secours uniques à usage unique (SHA-256).
   - Journalisation cryptographique syslog des événements sensibles.
   - Génération de bordereaux PDF scellés par empreinte SHA-256.
   - Protection anti-brute-force sur l'authentification (rate limiting strict) et politique de complexité des mots de passe.
@@ -30,10 +31,10 @@ Plateforme d'entreprise de gouvernance, de supervision et d'orchestration des de
 ## 🛠️ Stack Technique
 
 - **Frontend** : React 19, TypeScript, Tailwind CSS, Vite, Lucide Icons, Motion.
-- **Backend API** : Node.js 22, Express, JWT, bcryptjs, Nodemailer (SMTP), jsPDF.
+- **Backend API** : Node.js 22, Express, JWT, bcryptjs, Nodemailer (SMTP), jsPDF, qrcode, crypto (TOTP RFC 6238).
 - **Bases de Données** : SQLite (`node:sqlite`) & MariaDB 11 (`mysql2`).
 - **Tests & Assurance Qualité** :
-  - **Vitest** : 150 tests unitaires et d'intégration (couverture des services, sécurité NIS 2, référentiels, RBAC, réinitialisation de mot de passe, daemon d'automatisation SLA, SIEM, packages processus).
+  - **Vitest** : 164 tests unitaires et d'intégration répartis sur 36 suites (couverture complète des services, cryptographie 2FA TOTP RFC 6238, sécurité NIS 2, référentiels, RBAC, réinitialisation de mot de passe, daemon SLA, SIEM, packages processus).
   - **Playwright** : 13 tests end-to-end (parcours demandeur, accessibilité RGAA, administration, authentification et récupération).
 - **Conteneurisation** : Dockerfile multi-stage (Node 22 Alpine) et Docker Compose.
 - **CI/CD** : Pipeline GitHub Actions automatisé sur chaque commit/PR.

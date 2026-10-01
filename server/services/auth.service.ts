@@ -4,21 +4,24 @@ import { RoleRepository, roleRepository } from '../repositories/role.repository.
 import { AuditRepository, auditRepository } from '../repositories/audit.repository.js';
 import { SettingsRepository, settingsRepository } from '../repositories/settings.repository.js';
 import { JWT_SECRET } from '../middleware/auth.middleware.js';
+import { TwoFactorService } from './twoFactor.service.js';
 
 export interface AuthSession {
-    token: string;
+    token?: string;
+    require2FA?: boolean;
+    tempToken?: string;
     user: {
         id: number;
         email: string;
         name: string;
         role: string;
         roles: string[];
-        status: string;
-        attributes: Record<string, any>;
-        privileges: string[];
-        portalTabs: Record<string, boolean>;
-        tablePermissions: Record<string, any>;
-        referenceVisibilityRules: any[];
+        status?: string;
+        attributes?: Record<string, any>;
+        privileges?: string[];
+        portalTabs?: Record<string, boolean>;
+        tablePermissions?: Record<string, any>;
+        referenceVisibilityRules?: any[];
     };
 }
 
@@ -113,6 +116,101 @@ export class AuthService {
             this.failedAttempts.delete(normalizedEmail);
         }
 
+        if (user.attributes?.two_factor_enabled) {
+            const tempToken = jwt.sign(
+                { id: user.id, email: user.email, is2FAChallenge: true },
+                this.jwtSecret,
+                { expiresIn: '5m' }
+            );
+
+            return {
+                require2FA: true,
+                tempToken,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    role: user.role,
+                    roles: Array.isArray(user.roles) ? user.roles : [user.role]
+                }
+            } as any;
+        }
+
+        return this.createSessionForUser(user);
+    }
+
+    async verify2FA(tempToken: string, code: string): Promise<AuthSession> {
+        if (!tempToken || !code) {
+            throw new Error('Jeton temporaire et code de vérification obligatoires.');
+        }
+
+        let decoded: any;
+        try {
+            decoded = jwt.verify(tempToken, this.jwtSecret);
+        } catch {
+            throw new Error('Session 2FA expirée ou invalide. Veuillez vous reconnecter.');
+        }
+
+        if (!decoded || !decoded.is2FAChallenge || !decoded.id) {
+            throw new Error('Jeton de défi 2FA invalide.');
+        }
+
+        const user = await this.userRepo.findById(decoded.id);
+        if (!user) {
+            throw new Error('Utilisateur introuvable.');
+        }
+
+        const secret = user.attributes?.two_factor_secret;
+        if (!secret) {
+            throw new Error('Configuration 2FA manquante sur ce compte.');
+        }
+
+        // Try standard TOTP verification
+        const cleanCode = code.trim();
+        let isCodeValid = TwoFactorService.verifyTOTP(secret, cleanCode);
+        let usedBackupCode = false;
+
+        // If not a TOTP code, check if it is a single-use backup recovery code
+        if (!isCodeValid && user.attributes?.two_factor_backup_codes) {
+            const backupCheck = TwoFactorService.verifyAndConsumeBackupCode(
+                cleanCode,
+                user.attributes.two_factor_backup_codes
+            );
+            if (backupCheck.valid) {
+                isCodeValid = true;
+                usedBackupCode = true;
+                // Update user with remaining backup codes
+                const updatedAttributes = {
+                    ...user.attributes,
+                    two_factor_backup_codes: backupCheck.remainingHashedCodes
+                };
+                await this.userRepo.update(user.id, { attributes: updatedAttributes });
+            }
+        }
+
+        if (!isCodeValid) {
+            await this.auditRepo.log({
+                actor: user.name,
+                role: user.role,
+                action: 'AUTH_2FA_FAILED',
+                target: 'Auth',
+                details: `Échec de vérification du second facteur 2FA pour ${user.email}`
+            });
+            throw new Error('Code 2FA invalide ou expiré.');
+        }
+
+        await this.auditRepo.log({
+            actor: user.name,
+            role: user.role,
+            action: 'AUTH_2FA_SUCCESS',
+            target: 'Auth',
+            details: `Validation du second facteur 2FA réussie ${usedBackupCode ? '(via code de secours unique)' : '(via TOTP authenticator)'}`
+        });
+
+        return this.createSessionForUser(user);
+    }
+
+    async createSessionForUser(user: any): Promise<AuthSession> {
         // Aggregate privileges and permissions across all user roles
         const userRoles: string[] = Array.isArray(user.roles) && user.roles.length > 0
             ? user.roles

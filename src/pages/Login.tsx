@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { loginUser, requestPasswordReset } from '../lib/api';
+import { loginUser, requestPasswordReset, verify2FALogin } from '../lib/api';
 
 interface LoginProps {
     onLoginSuccess: (user: any) => void;
@@ -22,6 +22,13 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // État Double Authentification 2FA / TOTP
+    const [require2FA, setRequire2FA] = useState(false);
+    const [tempToken, setTempToken] = useState('');
+    const [twoFactorCode, setTwoFactorCode] = useState('');
+    const [isBackupCodeMode, setIsBackupCodeMode] = useState(false);
+    const [twoFactorUser, setTwoFactorUser] = useState<any>(null);
 
     // État Récupération Mot de passe oublié
     const [showForgotPassword, setShowForgotPassword] = useState(initialShowForgotPassword || false);
@@ -54,6 +61,13 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
         setError('');
         try {
             const res = await loginUser(email, password);
+            if (res.data?.require2FA) {
+                setRequire2FA(true);
+                setTempToken(res.data.tempToken);
+                setTwoFactorUser(res.data.user);
+                setTwoFactorCode('');
+                return;
+            }
             const fullUser = { ...res.data.user, token: res.data.token };
             localStorage.setItem('user', JSON.stringify(fullUser));
             localStorage.setItem('token', res.data.token);
@@ -74,6 +88,13 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
         setLoading(true);
         try {
             const res = await loginUser(presetEmail, 'Securite2026!');
+            if (res.data?.require2FA) {
+                setRequire2FA(true);
+                setTempToken(res.data.tempToken);
+                setTwoFactorUser(res.data.user);
+                setTwoFactorCode('');
+                return;
+            }
             const fullUser = { ...res.data.user, token: res.data.token };
             localStorage.setItem('user', JSON.stringify(fullUser));
             localStorage.setItem('token', res.data.token);
@@ -87,27 +108,154 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
         }
     };
 
+    const handle2FASubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        try {
+            const res = await verify2FALogin(tempToken, twoFactorCode.trim());
+            const fullUser = { ...res.data.user, token: res.data.token };
+            localStorage.setItem('user', JSON.stringify(fullUser));
+            localStorage.setItem('token', res.data.token);
+            onLoginSuccess(fullUser);
+        } catch (err: any) {
+            console.error('2FA verification error:', err);
+            const serverMsg = err.response?.data?.error || err.message || "Code de vérification invalide.";
+            setError(serverMsg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200">
-                <div className="text-center mb-6">
-                    <div className="bg-[#002395] text-white font-bold inline-block px-3 py-1 rounded text-sm mb-2 shadow-xs">
-                        Portail Opérationnel
-                    </div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Portail Mécatronique</h1>
-                    <p className="text-xs text-gray-500 mt-1">Connexion SSO & Espace Habilités</p>
-                </div>
-
-                {error && (
-                    <div className="mb-4 text-red-700 text-xs font-medium bg-red-50 p-3 rounded-lg border border-red-200 flex items-start gap-2">
-                        <i className="fas fa-exclamation-circle text-red-500 mt-0.5"></i>
-                        <div className="flex-1">
-                            <div>{error}</div>
+                {require2FA ? (
+                    <div>
+                        <div className="text-center mb-6">
+                            <div className="bg-emerald-600 text-white font-bold inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs mb-2 shadow-xs mx-auto">
+                                <i className="fas fa-shield-alt"></i>
+                                <span>Double Authentification (2FA / TOTP)</span>
+                            </div>
+                            <h1 className="text-xl font-bold text-gray-900 tracking-tight">Vérification de Sécurité</h1>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Compte : <span className="font-semibold text-gray-700">{twoFactorUser?.email || email}</span>
+                            </p>
                         </div>
-                    </div>
-                )}
 
-                <form onSubmit={handleLogin} className="space-y-4">
+                        {error && (
+                            <div className="mb-4 text-red-700 text-xs font-medium bg-red-50 p-3 rounded-lg border border-red-200 flex items-start gap-2">
+                                <i className="fas fa-exclamation-circle text-red-500 mt-0.5"></i>
+                                <div className="flex-1">
+                                    <div>{error}</div>
+                                </div>
+                            </div>
+                        )}
+
+                        <form onSubmit={handle2FASubmit} className="space-y-4">
+                            {!isBackupCodeMode ? (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 text-center">
+                                        Code à 6 chiffres depuis votre application d'authentification
+                                    </label>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={6}
+                                        autoFocus
+                                        required
+                                        value={twoFactorCode}
+                                        onChange={e => setTwoFactorCode(e.target.value.replace(/[^0-9]/g, ''))}
+                                        placeholder="123456"
+                                        className="block w-full py-3 text-center font-mono text-2xl font-bold tracking-widest border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#002395] focus:border-[#002395] bg-gray-50 focus:bg-white outline-hidden"
+                                    />
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 text-center">
+                                        Code de secours à usage unique
+                                    </label>
+                                    <input
+                                        type="text"
+                                        maxLength={9}
+                                        autoFocus
+                                        required
+                                        value={twoFactorCode}
+                                        onChange={e => setTwoFactorCode(e.target.value.toUpperCase())}
+                                        placeholder="XXXX-XXXX"
+                                        className="block w-full py-3 text-center font-mono text-xl font-bold tracking-widest border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#002395] focus:border-[#002395] bg-gray-50 focus:bg-white uppercase outline-hidden"
+                                    />
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={loading || !twoFactorCode}
+                                className="w-full bg-[#002395] text-white py-2.5 px-4 rounded-lg hover:bg-blue-900 font-semibold text-sm transition shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                            >
+                                {loading ? (
+                                    <>
+                                        <i className="fas fa-spinner fa-spin text-sm"></i>
+                                        <span>Vérification...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="fas fa-check-circle text-sm"></i>
+                                        <span>Valider la connexion</span>
+                                    </>
+                                )}
+                            </button>
+
+                            <div className="flex flex-col gap-2 pt-3 border-t border-slate-200 text-center">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsBackupCodeMode(!isBackupCodeMode);
+                                        setTwoFactorCode('');
+                                        setError('');
+                                    }}
+                                    className="text-xs text-indigo-700 hover:text-indigo-900 font-medium hover:underline cursor-pointer bg-transparent border-none p-0"
+                                >
+                                    {isBackupCodeMode
+                                        ? "← Utiliser mon application (code à 6 chiffres)"
+                                        : "Problème d'application ? Utiliser un code de secours"}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setRequire2FA(false);
+                                        setTempToken('');
+                                        setTwoFactorCode('');
+                                        setError('');
+                                    }}
+                                    className="text-xs text-gray-500 hover:text-gray-700 hover:underline cursor-pointer bg-transparent border-none p-0 mt-1"
+                                >
+                                    Annuler et revenir à la connexion
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                ) : (
+                    <>
+                        <div className="text-center mb-6">
+                            <div className="bg-[#002395] text-white font-bold inline-block px-3 py-1 rounded text-sm mb-2 shadow-xs">
+                                Portail Opérationnel
+                            </div>
+                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Portail Mécatronique</h1>
+                            <p className="text-xs text-gray-500 mt-1">Connexion SSO & Espace Habilités</p>
+                        </div>
+
+                        {error && (
+                            <div className="mb-4 text-red-700 text-xs font-medium bg-red-50 p-3 rounded-lg border border-red-200 flex items-start gap-2">
+                                <i className="fas fa-exclamation-circle text-red-500 mt-0.5"></i>
+                                <div className="flex-1">
+                                    <div>{error}</div>
+                                </div>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleLogin} className="space-y-4">
                     <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-1">
                             Adresse email professionnelle
@@ -234,6 +382,8 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                 <div className="mt-4 text-[11px] text-gray-400 text-center leading-relaxed">
                     Plateforme certifiée ISO 27001 / NIS 2 — Accès strictement réservé aux agents et prestataires habilités.
                 </div>
+                    </>
+                )}
             </div>
 
             {/* Modal Réinitialisation Mot de passe oublié */}
