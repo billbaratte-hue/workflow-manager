@@ -12,7 +12,9 @@ import {
     getCategories,
     getReferenceTables,
     getRoles,
-    getStatuses
+    getStatuses,
+    exportProcessPackage,
+    importProcessPackage
 } from '../lib/api';
 import PageHelpButton, { HelpSection } from '../components/PageHelpModal';
 import WorkflowStageConfigurator, {
@@ -61,7 +63,8 @@ import {
     Move,
     GitBranch,
     CornerDownRight,
-    GripVertical
+    GripVertical,
+    Package
 } from 'lucide-react';
 
 interface ProcessField {
@@ -633,7 +636,7 @@ export default function AdminProcessus() {
         }
     };
 
-    // Export JSON Blueprint
+    // Export JSON Blueprint (Standard)
     const handleExportBlueprint = () => {
         const blueprint = {
             name: editForm.name,
@@ -659,13 +662,39 @@ export default function AdminProcessus() {
         showNotification('success', "Blueprint JSON téléchargé.");
     };
 
-    // Import JSON Blueprint
+    // Export Full Process Package (Processus + Formulaire dynamique + Règles métier + SHA-256)
+    const handleExportPackage = async () => {
+        if (!selectedProcess) return;
+        try {
+            const res = await exportProcessPackage(selectedProcess.id);
+            const pkg = res.data;
+            const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `process-package-${(editForm.code || selectedProcess.name).toLowerCase().replace(/\s+/g, '-')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showNotification('success', `Package complet exporté avec succès (ID: ${pkg.manifest?.packageId || selectedProcess.id}).`);
+        } catch (err: any) {
+            showNotification('error', `Erreur lors de l'export du package : ${err.message}`);
+        }
+    };
+
+    // Import JSON Blueprint or Complete Process Package
     const handleImportBlueprint = async () => {
         try {
             const parsed = JSON.parse(importJsonText);
             setImportStatus('Traitement de l\'importation en cours...');
-            await importProcesses(parsed);
-            showNotification('success', "Blueprint JSON importé avec succès.");
+            if (parsed.manifest && parsed.process) {
+                // Detected Full Process Package
+                const res = await importProcessPackage(parsed);
+                showNotification('success', `Package complet importé : "${res.data.processName}" (${res.data.stagesCount} étapes, ${res.data.fieldsCount} champs, ${res.data.rulesCount} règles).`);
+            } else {
+                // Blueprint or standard process export
+                await importProcesses(parsed);
+                showNotification('success', "Blueprint JSON importé avec succès.");
+            }
             setShowImportModal(false);
             setImportJsonText('');
             setImportStatus(null);
@@ -908,9 +937,19 @@ export default function AdminProcessus() {
 
                                     <button
                                         type="button"
+                                        onClick={handleExportPackage}
+                                        className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+                                        title="Exporter le Package Complet (Processus, Formulaire et Règles Métier avec empreinte SHA-256)"
+                                    >
+                                        <Package className="w-3.5 h-3.5 text-purple-600" />
+                                        <span>Export Package</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
                                         onClick={handleExportBlueprint}
                                         className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg text-xs transition cursor-pointer"
-                                        title="Télécharger le Blueprint JSON"
+                                        title="Télécharger le Blueprint JSON standard"
                                     >
                                         <Download className="w-3.5 h-3.5" />
                                     </button>
@@ -2059,15 +2098,39 @@ export default function AdminProcessus() {
                             </button>
                         </div>
 
-                        <div className="space-y-2 text-xs">
-                            <p className="text-gray-500">
-                                Collez ci-dessous le blueprint JSON d'un ou plusieurs workflows (stages, règles d'accomplissement, notifications, champs).
+                        <div className="space-y-3 text-xs">
+                            <p className="text-gray-600">
+                                Importez un <strong>Package Complet</strong> (Processus + Formulaire dynamique + Règles Métier) ou un <strong>Blueprint JSON</strong> standard.
                             </p>
+
+                            <div className="flex items-center justify-between p-2.5 bg-blue-50/60 border border-blue-200 rounded-xl">
+                                <span className="text-[11px] text-blue-800 font-medium">Charger un fichier .json depuis votre poste :</span>
+                                <label className="cursor-pointer bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 px-2.5 py-1 rounded-lg text-xs font-bold transition shadow-2xs flex items-center gap-1.5">
+                                    <Upload className="w-3 h-3 text-blue-600" />
+                                    <span>Parcourir...</span>
+                                    <input
+                                        type="file"
+                                        accept=".json,application/json"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            const reader = new FileReader();
+                                            reader.onload = (evt) => {
+                                                const text = evt.target?.result as string;
+                                                setImportJsonText(text);
+                                            };
+                                            reader.readAsText(file);
+                                        }}
+                                    />
+                                </label>
+                            </div>
+
                             <textarea
                                 rows={8}
                                 value={importJsonText}
                                 onChange={e => setImportJsonText(e.target.value)}
-                                placeholder="Collez le code JSON ici..."
+                                placeholder="Ou collez directement le contenu JSON ici..."
                                 className="w-full border border-gray-300 rounded-xl p-3 font-mono text-[11px] bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-600 outline-hidden"
                             />
                             {importStatus && (
@@ -2079,7 +2142,7 @@ export default function AdminProcessus() {
                             <button
                                 type="button"
                                 onClick={() => setShowImportModal(false)}
-                                className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg"
+                                className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer"
                             >
                                 Annuler
                             </button>
@@ -2087,9 +2150,10 @@ export default function AdminProcessus() {
                                 type="button"
                                 onClick={handleImportBlueprint}
                                 disabled={!importJsonText.trim()}
-                                className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs disabled:opacity-50"
+                                className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
                             >
-                                Importer
+                                <Upload className="w-3.5 h-3.5" />
+                                Importer le Workflow / Package
                             </button>
                         </div>
                     </div>

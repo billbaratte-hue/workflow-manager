@@ -146,4 +146,13 @@ router.post('/hardware/contrats-retour', verifyToken, opsController.handleCreate
 router.post('/hardware/contrats-retour/:id/transition', verifyToken, opsController.handleTransitionReturnContract);
 router.patch('/hardware/contrats-retour/:id/status', verifyToken, opsController.handleUpdateContractStatus);
 
+// Automation & SLA Watchdog Daemon routes
+router.get('/automation/status', verifyToken, requirePrivilege('manage_users'), opsController.handleGetAutomationStatus);
+router.post('/automation/run', verifyToken, requirePrivilege('manage_users'), opsController.handleRunAutomationCycle);
+router.post('/automation/siem-test', verifyToken, requirePrivilege('manage_users'), opsController.handleTestSiemWebhook);
+
+// Process Package Export & Import routes
+router.get('/processus/:id/export-package', verifyToken, requirePrivilege('manage_users'), opsController.handleExportProcessPackage);
+router.post('/processus/import-package', verifyToken, requirePrivilege('manage_users'), opsController.handleImportProcessPackage);
+
 export default router;

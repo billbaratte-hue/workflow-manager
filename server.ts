@@ -20,6 +20,7 @@ import { verifyDocumentAccess, streamSecuredDocument } from './server/middleware
 import { ExportPdfService } from './server/services/exportPdf.service.js';
 import tenantRoutes from './server/routes/tenant.routes.js';
 import { resolveTenant } from './server/middleware/tenant.middleware.js';
+import { AutomationService } from './server/services/automation.service.js';
 
 async function startServer() {
   // Initialize SQLite database
@@ -28,6 +29,9 @@ async function startServer() {
     await workflowRepository.initializeTables();
     await configRepository.syncAllFromDb();
     console.log('✓ Base de données SQLite initialisée avec succès (portal.db)');
+    
+    // Start automated SLA & hardware return surveillance daemon
+    AutomationService.startDaemon(5);
   } catch (dbErr) {
     console.error('Erreur initialisation SQLite:', dbErr);
   }

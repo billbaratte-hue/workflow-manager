@@ -395,4 +395,14 @@ export const deleteTenant = (tenantId: string) => api.delete(`/tenant/${encodeUR
 export const importTableCsv = (tableId: string, rows: any[]) =>
     api.post(`/admin/tables/${encodeURIComponent(tableId)}/import-csv`, { rows });
 
+// ==============================================================================
+// Épique 3 : Surveillance Automatisée des SLA, SIEM / SOC & Packages Processus
+// ==============================================================================
+export const getAutomationStatus = () => api.get('/admin/automation/status');
+export const runAutomationCycle = (dryRun: boolean = false) => api.post('/admin/automation/run', { dryRun });
+export const testSiemWebhook = () => api.post('/admin/automation/siem-test');
+
+export const exportProcessPackage = (id: number | string) => api.get(`/admin/processus/${id}/export-package`);
+export const importProcessPackage = (pkg: any) => api.post('/admin/processus/import-package', pkg);
+
 export default api;

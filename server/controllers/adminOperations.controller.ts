@@ -12,6 +12,8 @@ import { getDatabase } from '../db/database.js';
 import { AffectationDynamiqueService } from '../services/affectationDynamique.service.js';
 import { ChampsConditionnelsService } from '../services/champsConditionnels.service.js';
 import { ContratRetourService, ReturnContractRecord } from '../services/contratRetour.service.js';
+import { AutomationService } from '../services/automation.service.js';
+import { ProcessPackageService } from '../services/processPackage.service.js';
 
 // In-memory store for return contracts created at runtime
 const activeContractsStore: ReturnContractRecord[] = [];
@@ -267,5 +269,91 @@ export async function handleUpdateContractStatus(req: Request, res: Response) {
     } catch (err: any) {
         console.error('Erreur handleUpdateContractStatus:', err);
         res.status(400).json({ error: err.message || 'Échec du changement de statut.' });
+    }
+}
+
+/**
+ * Automation & SLA Watchdog Daemon status
+ */
+export async function handleGetAutomationStatus(_req: Request, res: Response) {
+    try {
+        const status = AutomationService.getStatus();
+        res.status(200).json(status);
+    } catch (err: any) {
+        console.error('Erreur handleGetAutomationStatus:', err);
+        res.status(500).json({ error: err.message || 'Impossible de récupérer le statut de l\'automatisation.' });
+    }
+}
+
+/**
+ * Trigger an automation & SLA surveillance cycle on-demand
+ */
+export async function handleRunAutomationCycle(req: Request, res: Response) {
+    try {
+        const dryRun = Boolean(req.body?.dryRun);
+        const stats = await AutomationService.runCycle({ dryRun });
+        res.status(200).json({
+            message: 'Cycle d\'automatisation et de surveillance des SLA exécuté avec succès.',
+            stats
+        });
+    } catch (err: any) {
+        console.error('Erreur handleRunAutomationCycle:', err);
+        res.status(500).json({ error: err.message || 'Échec de l\'exécution du cycle d\'automatisation.' });
+    }
+}
+
+/**
+ * Test dispatch to external SIEM / SOC webhook
+ */
+export async function handleTestSiemWebhook(req: Request, res: Response) {
+    try {
+        const testPayload = {
+            eventType: 'SECURITY_AUDIT_TEST',
+            severity: 'INFORMATIONAL',
+            message: 'Test de connectivité Webhook SIEM / SOC depuis Workflow Manager',
+            triggeredBy: (req as any).user?.name || 'Administrateur Test',
+            timestamp: new Date().toISOString()
+        };
+        const dispatched = await AutomationService.dispatchSiemWebhook(testPayload);
+        res.status(200).json({
+            success: dispatched,
+            message: dispatched
+                ? 'Événement de test transmis avec succès au webhook SIEM.'
+                : 'Aucune URL de webhook configurée (SIEM_WEBHOOK_URL ou siem_webhook_url dans les paramètres système), ou le webhook a renvoyé une erreur.'
+        });
+    } catch (err: any) {
+        console.error('Erreur handleTestSiemWebhook:', err);
+        res.status(500).json({ error: err.message || 'Erreur lors du test du webhook.' });
+    }
+}
+
+/**
+ * Export a complete self-contained process package (process + dynamic form + business rules)
+ */
+export async function handleExportProcessPackage(req: Request, res: Response) {
+    try {
+        const processId = Number(req.params.id);
+        const userName = (req as any).user?.name || 'Admin';
+        const pkg = await ProcessPackageService.exportPackage(processId, userName);
+        res.setHeader('Content-Disposition', `attachment; filename="process_package_${processId}.json"`);
+        res.setHeader('Content-Type', 'application/json');
+        res.status(200).json(pkg);
+    } catch (err: any) {
+        console.error('Erreur handleExportProcessPackage:', err);
+        res.status(404).json({ error: err.message || 'Échec de l\'export du package de processus.' });
+    }
+}
+
+/**
+ * Import a complete process package into the platform
+ */
+export async function handleImportProcessPackage(req: Request, res: Response) {
+    try {
+        const userName = (req as any).user?.name || 'Admin';
+        const result = await ProcessPackageService.importPackage(req.body, userName);
+        res.status(201).json(result);
+    } catch (err: any) {
+        console.error('Erreur handleImportProcessPackage:', err);
+        res.status(400).json({ error: err.message || 'Échec de l\'importation du package de processus.' });
     }
 }

@@ -19,7 +19,10 @@ Plateforme d'entreprise de gouvernance, de supervision et d'orchestration des de
   - Protection anti-brute-force sur l'authentification (rate limiting strict) et politique de complexité des mots de passe.
   - Récupération sécurisée de mot de passe par email via jetons cryptographiques horodatés (validité 4 jours).
   - Contrôle d'accès granulaire RBAC avec détection temps réel des doublons (Administrateur, Validateur de Site, Responsable d'Équipe, Régie Matérielle, Collaborateur).
-- **Régie Matérielle & Console Nationale** : Poste de contrôle des stocks de clés/cylindres, programmation, télé-révocation d'urgence et supervision nationale temps réel.
+- **Surveillance Automatisée des SLA & Watchdog Daemon** : Daemon d'arrière-plan analysant périodiquement les dossiers en cours, émettant des pré-alertes à 80% du délai et déclenchant l'auto-escalade à 100% avec notification SSE urgente, notification email et piste d'audit.
+- **Connecteur Webhook Sortant SIEM / SOC (NIS 2)** : Dispatch sécurisé des événements critiques vers des collecteurs externes (SIEM, Slack, Microsoft Teams) avec signature cryptographique HMAC-SHA256 (`X-Signature-SHA256`).
+- **Studio de Packages Processus Portables** : Exportation et importation en un clic de packages complets autonomes (Machine à états, Formulaire dynamique associé, Règles métier et somme de contrôle d'intégrité SHA-256).
+- **Régie Matérielle & Console Nationale** : Poste de contrôle des stocks de clés/cylindres, programmation, relances automatiques de restitution, télé-révocation d'urgence et supervision nationale temps réel.
 - **Documentation Intégrale** : Guide complet opérationnel disponible au format Word `.docx` (`Workflow_Manager_Guide_Complet.docx`) et Markdown.
 
 ---
@@ -30,7 +33,7 @@ Plateforme d'entreprise de gouvernance, de supervision et d'orchestration des de
 - **Backend API** : Node.js 22, Express, JWT, bcryptjs, Nodemailer (SMTP), jsPDF.
 - **Bases de Données** : SQLite (`node:sqlite`) & MariaDB 11 (`mysql2`).
 - **Tests & Assurance Qualité** :
-  - **Vitest** : 145 tests unitaires et d'intégration (couverture des services, sécurité NIS 2, référentiels, RBAC, réinitialisation de mot de passe).
+  - **Vitest** : 150 tests unitaires et d'intégration (couverture des services, sécurité NIS 2, référentiels, RBAC, réinitialisation de mot de passe, daemon d'automatisation SLA, SIEM, packages processus).
   - **Playwright** : 13 tests end-to-end (parcours demandeur, accessibilité RGAA, administration, authentification et récupération).
 - **Conteneurisation** : Dockerfile multi-stage (Node 22 Alpine) et Docker Compose.
 - **CI/CD** : Pipeline GitHub Actions automatisé sur chaque commit/PR.

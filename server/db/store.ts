@@ -1022,6 +1022,9 @@ export interface RequestItem {
         recommendation: string;
         analyzed_at: string;
     } | null;
+    sla_breached?: boolean;
+    sla_breached_at?: string;
+    sla_warning?: boolean;
 }
 
 export interface DecisionHistoryItem {

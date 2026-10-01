@@ -1,8 +1,24 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import SystemSettingsManager from '../components/SystemSettingsManager';
+import AutomationControlCenter from '../components/AutomationControlCenter';
 
 export default function AdminParametresSysteme() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const currentTab = searchParams.get('tab') || 'settings';
+    const [activeTab, setActiveTab] = useState<'settings' | 'automation'>(
+        currentTab === 'automation' ? 'automation' : 'settings'
+    );
+
+    const handleTabChange = (tab: 'settings' | 'automation') => {
+        setActiveTab(tab);
+        if (tab === 'automation') {
+            setSearchParams({ tab: 'automation' });
+        } else {
+            setSearchParams({});
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Navigation & Context Header */}
@@ -71,8 +87,43 @@ export default function AdminParametresSysteme() {
                 </div>
             </div>
 
-            {/* Embedded Isolated System Settings Manager */}
-            <SystemSettingsManager />
+            {/* Sub-Tabs: Settings vs Automation Watchdog */}
+            <div className="flex items-center gap-3 border-b border-gray-200">
+                <button
+                    type="button"
+                    onClick={() => handleTabChange('settings')}
+                    className={`pb-3 px-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition cursor-pointer ${
+                        activeTab === 'settings'
+                            ? 'border-[#002395] text-[#002395]'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    <i className="fas fa-sliders text-xs"></i>
+                    <span>Paramètres & Seuils Système</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => handleTabChange('automation')}
+                    className={`pb-3 px-2 text-sm font-semibold flex items-center gap-2 border-b-2 transition cursor-pointer ${
+                        activeTab === 'automation'
+                            ? 'border-[#002395] text-[#002395]'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    <i className="fas fa-robot text-xs"></i>
+                    <span>Daemon d'Automatisation & SLA Watchdog</span>
+                    <span className="ml-1.5 px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        Actif 5 min
+                    </span>
+                </button>
+            </div>
+
+            {/* Embedded Tab Views */}
+            {activeTab === 'settings' ? (
+                <SystemSettingsManager />
+            ) : (
+                <AutomationControlCenter />
+            )}
         </div>
     );
 }
