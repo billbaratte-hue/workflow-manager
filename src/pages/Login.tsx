@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { loginUser, requestPasswordReset, verify2FALogin } from '../lib/api';
+import LanguageSelector from '../components/LanguageSelector';
+import { useTranslation } from '../i18n/LanguageContext';
 
 interface LoginProps {
     onLoginSuccess: (user: any) => void;
@@ -17,6 +19,7 @@ const PRESET_ACCOUNTS = [
 ];
 
 export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigateToForgotPassword, initialShowForgotPassword }: LoginProps) {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('admin@entreprise.fr');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -130,14 +133,17 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
     return (
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200">
+                <div className="flex justify-end mb-3">
+                    <LanguageSelector />
+                </div>
                 {require2FA ? (
                     <div>
                         <div className="text-center mb-6">
                             <div className="bg-emerald-600 text-white font-bold inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs mb-2 shadow-xs mx-auto">
                                 <i className="fas fa-shield-alt"></i>
-                                <span>Double Authentification (2FA / TOTP)</span>
+                                <span>{t('auth.twoFactorTitle')}</span>
                             </div>
-                            <h1 className="text-xl font-bold text-gray-900 tracking-tight">Vérification de Sécurité</h1>
+                            <h1 className="text-xl font-bold text-gray-900 tracking-tight">{t('auth.twoFactorSubtitle')}</h1>
                             <p className="text-xs text-gray-500 mt-1">
                                 Compte : <span className="font-semibold text-gray-700">{twoFactorUser?.email || email}</span>
                             </p>
@@ -156,7 +162,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                             {!isBackupCodeMode ? (
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 text-center">
-                                        Code à 6 chiffres depuis votre application d'authentification
+                                        {t('auth.twoFactorPrompt')}
                                     </label>
                                     <input
                                         type="text"
@@ -173,7 +179,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                             ) : (
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 text-center">
-                                        Code de secours à usage unique
+                                        {t('auth.backupCodePrompt')}
                                     </label>
                                     <input
                                         type="text"
@@ -196,12 +202,12 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                                 {loading ? (
                                     <>
                                         <i className="fas fa-spinner fa-spin text-sm"></i>
-                                        <span>Vérification...</span>
+                                        <span>{t('auth.verifying')}</span>
                                     </>
                                 ) : (
                                     <>
                                         <i className="fas fa-check-circle text-sm"></i>
-                                        <span>Valider la connexion</span>
+                                        <span>{t('auth.verifyButton')}</span>
                                     </>
                                 )}
                             </button>
@@ -217,8 +223,8 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                                     className="text-xs text-indigo-700 hover:text-indigo-900 font-medium hover:underline cursor-pointer bg-transparent border-none p-0"
                                 >
                                     {isBackupCodeMode
-                                        ? "← Utiliser mon application (code à 6 chiffres)"
-                                        : "Problème d'application ? Utiliser un code de secours"}
+                                        ? t('auth.useAuthenticatorApp')
+                                        : t('auth.useBackupCode')}
                                 </button>
 
                                 <button
@@ -231,7 +237,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                                     }}
                                     className="text-xs text-gray-500 hover:text-gray-700 hover:underline cursor-pointer bg-transparent border-none p-0 mt-1"
                                 >
-                                    Annuler et revenir à la connexion
+                                    {t('auth.cancel2FA')}
                                 </button>
                             </div>
                         </form>
@@ -240,10 +246,10 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                     <>
                         <div className="text-center mb-6">
                             <div className="bg-[#002395] text-white font-bold inline-block px-3 py-1 rounded text-sm mb-2 shadow-xs">
-                                Portail Opérationnel
+                                {t('nav.portalName')}
                             </div>
-                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Portail Mécatronique</h1>
-                            <p className="text-xs text-gray-500 mt-1">Connexion SSO & Espace Habilités</p>
+                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('auth.title')}</h1>
+                            <p className="text-xs text-gray-500 mt-1">{t('auth.subtitle')}</p>
                         </div>
 
                         {error && (
@@ -258,7 +264,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                         <form onSubmit={handleLogin} className="space-y-4">
                     <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-1">
-                            Adresse email professionnelle
+                            {t('auth.email')}
                         </label>
                         <div className="relative">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
@@ -278,7 +284,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                     <div>
                         <div className="flex items-center justify-between mb-1">
                             <label className="block text-xs font-semibold text-gray-700">
-                                Mot de passe
+                                {t('auth.password')}
                             </label>
                             <button
                                 type="button"
@@ -294,7 +300,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                                 }}
                                 className="text-xs font-medium text-[#002395] hover:underline cursor-pointer bg-transparent border-none p-0"
                             >
-                                Mot de passe oublié ?
+                                {t('auth.forgotPassword')}
                             </button>
                         </div>
                         <div className="relative">
@@ -313,7 +319,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
                                 className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
-                                title={showPassword ? 'Masquer' : 'Afficher'}
+                                title={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                             >
                                 <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-xs`}></i>
                             </button>
@@ -328,12 +334,12 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                         {loading ? (
                             <>
                                 <i className="fas fa-spinner fa-spin text-sm"></i>
-                                <span>Connexion en cours...</span>
+                                <span>{t('auth.loggingIn')}</span>
                             </>
                         ) : (
                             <>
                                 <i className="fas fa-sign-in-alt text-sm"></i>
-                                <span>Se connecter</span>
+                                <span>{t('auth.loginButton')}</span>
                             </>
                         )}
                     </button>
@@ -341,7 +347,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
 
                 <div className="mt-6 pt-5 border-t border-slate-200">
                     <p className="text-xs font-semibold text-gray-600 mb-2.5 text-center">
-                        Connexion rapide en 1 clic (Profils de démonstration) :
+                        {t('auth.quickLogin')}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                         {PRESET_ACCOUNTS.map(preset => (
@@ -363,24 +369,24 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                 </div>
 
                 <div className="mt-4 text-center">
-                    <span className="text-xs text-slate-500">Nouvel agent ou prestataire tiers ? </span>
+                    <span className="text-xs text-slate-500">{t('auth.newAccount')} </span>
                     {onNavigateToRegister ? (
                         <button
                             type="button"
                             onClick={onNavigateToRegister}
                             className="text-xs font-bold text-[#002395] hover:underline cursor-pointer bg-transparent border-none p-0 inline"
                         >
-                            Créer un compte
+                            {t('auth.createAccount')}
                         </button>
                     ) : (
                         <Link to="/register" className="text-xs font-bold text-[#002395] hover:underline">
-                            Créer un compte
+                            {t('auth.createAccount')}
                         </Link>
                     )}
                 </div>
 
                 <div className="mt-4 text-[11px] text-gray-400 text-center leading-relaxed">
-                    Plateforme certifiée ISO 27001 / NIS 2 — Accès strictement réservé aux agents et prestataires habilités.
+                    {t('auth.certificationNotice')}
                 </div>
                     </>
                 )}
@@ -396,15 +402,15 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                                     <i className="fas fa-key text-xs"></i>
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-bold text-slate-900">Mot de passe oublié</h3>
-                                    <p className="text-[11px] text-slate-500">Procédure sécurisée par email</p>
+                                    <h3 className="text-sm font-bold text-slate-900">{t('auth.forgotPasswordTitle')}</h3>
+                                    <p className="text-[11px] text-slate-500">{t('auth.forgotPasswordDesc')}</p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setShowForgotPassword(false)}
                                 className="text-slate-400 hover:text-slate-600 rounded-lg p-1 transition cursor-pointer"
-                                title="Fermer"
+                                title={t('common.close')}
                             >
                                 <i className="fas fa-times text-sm"></i>
                             </button>
@@ -415,7 +421,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                                 <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex gap-3 items-start">
                                     <i className="fas fa-check-circle text-emerald-600 text-base mt-0.5 shrink-0"></i>
                                     <div className="space-y-1">
-                                        <p className="font-bold text-emerald-900">Demande prise en compte</p>
+                                        <p className="font-bold text-emerald-900">{t('auth.requestReceived')}</p>
                                         <p className="leading-relaxed">{forgotMessage}</p>
                                     </div>
                                 </div>
@@ -427,13 +433,13 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                                     onClick={() => setShowForgotPassword(false)}
                                     className="w-full bg-[#002395] text-white py-2.5 px-4 rounded-lg font-semibold text-xs hover:bg-blue-900 transition shadow-xs cursor-pointer"
                                 >
-                                    Retour à la connexion
+                                    {t('auth.backToLogin')}
                                 </button>
                             </div>
                         ) : (
                             <form onSubmit={handleForgotPasswordSubmit} className="mt-4 space-y-4">
                                 <p className="text-xs text-slate-600 leading-relaxed">
-                                    Indiquez votre adresse email professionnelle. Si un compte actif y est associé, nous vous transmettrons un lien sécurisé permettant de réinitialiser votre mot de passe.
+                                    {t('auth.forgotPasswordInstructions')}
                                 </p>
 
                                 {forgotError && (
@@ -445,7 +451,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
 
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                        Adresse email professionnelle
+                                        {t('auth.email')}
                                     </label>
                                     <div className="relative">
                                         <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -468,7 +474,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                                         onClick={() => setShowForgotPassword(false)}
                                         className="flex-1 py-2 px-3 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                                     >
-                                        Annuler
+                                        {t('common.cancel')}
                                     </button>
                                     <button
                                         type="submit"
@@ -478,12 +484,12 @@ export default function Login({ onLoginSuccess, onNavigateToRegister, onNavigate
                                         {forgotLoading ? (
                                             <>
                                                 <i className="fas fa-spinner fa-spin text-xs"></i>
-                                                <span>Envoi...</span>
+                                                <span>{t('auth.sending')}</span>
                                             </>
                                         ) : (
                                             <>
                                                 <i className="fas fa-paper-plane text-xs"></i>
-                                                <span>Envoyer le lien</span>
+                                                <span>{t('auth.sendResetLink')}</span>
                                             </>
                                         )}
                                     </button>

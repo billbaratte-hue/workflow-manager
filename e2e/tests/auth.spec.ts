@@ -67,4 +67,23 @@ test.describe('Authentication & Access Security (NIS 2)', () => {
     await expect(page.locator('text=Lien invalide ou expiré')).toBeVisible();
     await expect(page.locator('text=Demander un nouveau lien / Connexion')).toBeVisible();
   });
+
+  test('should toggle language dynamically between French and English', async ({ page }) => {
+    await page.goto('/login');
+
+    // Default is French
+    await expect(page.locator('text=Portail Mécatronique')).toBeVisible();
+    await expect(page.locator('button[type="submit"]')).toHaveText('Se connecter');
+
+    // Switch to English
+    await page.click('button[data-testid="lang-btn-en"]');
+    await expect(page.locator('text=Mechatronic Portal')).toBeVisible();
+    await expect(page.locator('button[type="submit"]')).toHaveText('Sign in');
+    await expect(page.locator('text=1-Click Quick Login (Demo Profiles):')).toBeVisible();
+
+    // Switch back to French
+    await page.click('button[data-testid="lang-btn-fr"]');
+    await expect(page.locator('text=Portail Mécatronique')).toBeVisible();
+    await expect(page.locator('button[type="submit"]')).toHaveText('Se connecter');
+  });
 });

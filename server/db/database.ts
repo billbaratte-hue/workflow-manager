@@ -20,6 +20,12 @@ export class SqliteWrapper implements ISqliteDb {
 
     constructor(location: string) {
         this.rawDb = new DatabaseSync(location);
+        try {
+            this.rawDb.exec('PRAGMA journal_mode = WAL;');
+            this.rawDb.exec('PRAGMA busy_timeout = 5000;');
+        } catch {
+            // Memory databases or read-only modes may ignore these pragmas
+        }
     }
 
     async exec(sql: string): Promise<void> {

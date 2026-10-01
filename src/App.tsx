@@ -40,9 +40,11 @@ import AdminLayout from './components/AdminLayout';
 import NotificationCenter from './components/NotificationCenter';
 import AlertBanner from './components/AlertBanner';
 import GlobalSearch from './components/GlobalSearch';
+import LanguageSelector from './components/LanguageSelector';
 import { FeaturesProvider, useFeatures } from './context/FeaturesContext';
 import { AdminNavProvider } from './context/AdminNavContext';
 import { TenantProvider, useTenant } from './context/TenantContext';
+import { LanguageProvider, useTranslation } from './i18n/LanguageContext';
 import { loginUser } from './lib/api';
 
 interface PortalTabConfigItem {
@@ -77,7 +79,25 @@ const DEFAULT_PORTAL_TABS: PortalTabConfigItem[] = [
     { id: "admin", key: "admin", label: "Espace Administrateur", description: "Gouvernance des workflows, tables, catalogues et droits d'accès RBAC", icon: "fas fa-shield-alt", path: "/admin", badge: "Admin", badge_color: "bg-purple-100 text-purple-800", is_active: true, display_order: 13, required_privilege: "manage_users", is_system: true }
 ];
 
+const TAB_I18N_KEYS: Record<string, string> = {
+    'catalogue': 'nav.catalogue',
+    'mes-demandes': 'nav.myRequests',
+    'assistant-ia': 'nav.aiAssistant',
+    'espace-demandeur': 'nav.demandeurSpace',
+    'workflows': 'nav.workflows',
+    'corbeille': 'nav.corbeille',
+    'regie': 'nav.regie',
+    'console-nationale': 'nav.nationalConsole',
+    'historique-decisions': 'nav.decisionsHistory',
+    'tableau-de-bord': 'nav.dashboard',
+    'recherche': 'nav.search',
+    'documentation': 'nav.documentation',
+    'delegation': 'nav.delegations',
+    'admin': 'nav.adminSpace'
+};
+
 function Navigation({ user, onLogout }: { user: any; onLogout: () => void }) {
+    const { t } = useTranslation();
     const location = useLocation();
     const { tenant } = useTenant();
     const privileges: string[] = user.privileges || [];
@@ -166,7 +186,7 @@ function Navigation({ user, onLogout }: { user: any; onLogout: () => void }) {
                             )}
                             <div className="flex space-x-2 text-sm font-medium">
                                 <Link to="/" className={`px-3 py-2 rounded-md transition ${!isAdminRoute && location.pathname === '/' ? 'bg-black/25 font-semibold' : 'hover:bg-white/10'}`}>
-                                    <i className="fas fa-book-open mr-1.5"></i> Portail Opérationnel
+                                    <i className="fas fa-book-open mr-1.5"></i> {t('nav.portalName')}
                                 </Link>
                                 {hasTabAccess('admin') && (
                                     <Link
@@ -174,7 +194,7 @@ function Navigation({ user, onLogout }: { user: any; onLogout: () => void }) {
                                         className={`px-3 py-2 rounded-md transition ${isAdminRoute ? 'bg-black/25 font-bold border-b-2' : 'hover:bg-white/10'}`}
                                         style={{ borderColor: 'var(--brand-accent, #f59e0b)' }}
                                     >
-                                        <i className="fas fa-shield-alt mr-1.5"></i> Espace Administrateur
+                                        <i className="fas fa-shield-alt mr-1.5"></i> {t('nav.adminSpace')}
                                     </Link>
                                 )}
                             </div>
@@ -186,6 +206,9 @@ function Navigation({ user, onLogout }: { user: any; onLogout: () => void }) {
                         </div>
 
                         <div className="flex items-center space-x-3">
+                            {/* Sélecteur bilingue Français / Anglais */}
+                            <LanguageSelector />
+
                             {/* Centre de notifications & alertes en temps réel */}
                             <NotificationCenter user={user} />
 
@@ -200,8 +223,8 @@ function Navigation({ user, onLogout }: { user: any; onLogout: () => void }) {
                             </div>
                             <button
                                 onClick={onLogout}
-                                className="text-red-300 hover:text-white text-sm p-1.5 rounded hover:bg-white/10 transition"
-                                title="Déconnexion"
+                                className="text-red-300 hover:text-white text-sm p-1.5 rounded hover:bg-white/10 transition cursor-pointer"
+                                title={t('nav.logout')}
                             >
                                 <i className="fas fa-sign-out-alt"></i>
                             </button>
@@ -230,7 +253,7 @@ function Navigation({ user, onLogout }: { user: any; onLogout: () => void }) {
                                         title={tab.description}
                                     >
                                         <i className={`${tab.icon} mr-0.5 text-xs`}></i>
-                                        <span>{tab.label}</span>
+                                        <span>{TAB_I18N_KEYS[tab.key] ? t(TAB_I18N_KEYS[tab.key]) : tab.label}</span>
                                         {tab.badge && (
                                             <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${tab.badge_color || 'bg-yellow-400 text-blue-950'}`}>
                                                 {tab.badge}
@@ -456,18 +479,20 @@ export default function App() {
     };
 
     return (
-        <TenantProvider>
-            <FeaturesProvider>
-                <AdminNavProvider>
-                    <Router>
-                        {user ? (
-                            <AuthenticatedApp user={user} onLogout={handleLogout} />
-                        ) : (
-                            <UnauthenticatedApp onLoginSuccess={(u) => setUser(u)} />
-                        )}
-                    </Router>
-                </AdminNavProvider>
-            </FeaturesProvider>
-        </TenantProvider>
+        <LanguageProvider>
+            <TenantProvider>
+                <FeaturesProvider>
+                    <AdminNavProvider>
+                        <Router>
+                            {user ? (
+                                <AuthenticatedApp user={user} onLogout={handleLogout} />
+                            ) : (
+                                <UnauthenticatedApp onLoginSuccess={(u) => setUser(u)} />
+                            )}
+                        </Router>
+                    </AdminNavProvider>
+                </FeaturesProvider>
+            </TenantProvider>
+        </LanguageProvider>
     );
 }
