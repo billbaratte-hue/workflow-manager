@@ -306,7 +306,58 @@ CREATE TABLE IF NOT EXISTS password_resets (
     tenant_id VARCHAR(191) DEFAULT 'default'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 20. Index de Recherche Rapide
+-- 20. Définition des Schémas de Formulaires Dynamiques (Blockly Workflow Engine)
+CREATE TABLE IF NOT EXISTS schema_definitions (
+    id VARCHAR(191) PRIMARY KEY,
+    name VARCHAR(191) NOT NULL,
+    code VARCHAR(100),
+    description TEXT,
+    fields LONGTEXT NOT NULL,
+    created_at VARCHAR(100) NOT NULL,
+    updated_at VARCHAR(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 21. Entités Dynamiques (Payloads JSONB soumis)
+CREATE TABLE IF NOT EXISTS dynamic_entities (
+    id VARCHAR(191) PRIMARY KEY,
+    schema_id VARCHAR(191) NOT NULL,
+    status VARCHAR(100) NOT NULL DEFAULT 'DRAFT',
+    payload_json LONGTEXT NOT NULL,
+    initiator_id INT,
+    initiator_name VARCHAR(191),
+    initiator_email VARCHAR(191),
+    created_at VARCHAR(100) NOT NULL,
+    updated_at VARCHAR(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 22. Définitions de Workflows Graphiques Blockly
+CREATE TABLE IF NOT EXISTS workflow_definitions (
+    id VARCHAR(191) PRIMARY KEY,
+    name VARCHAR(191) NOT NULL,
+    description TEXT,
+    schema_id VARCHAR(191) NOT NULL,
+    trigger_type VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+    xml_state LONGTEXT,
+    ast_json LONGTEXT NOT NULL,
+    version INT DEFAULT 1,
+    created_at VARCHAR(100) NOT NULL,
+    updated_at VARCHAR(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 23. Instances d'Exécution & Traces de Workflow
+CREATE TABLE IF NOT EXISTS workflow_instances (
+    id VARCHAR(191) PRIMARY KEY,
+    workflow_id VARCHAR(191) NOT NULL,
+    entity_id VARCHAR(191) NOT NULL,
+    trigger_type VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    execution_log LONGTEXT,
+    approval_state LONGTEXT,
+    executed_at VARCHAR(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 24. Index de Recherche Rapide
 CREATE INDEX idx_requests_reference ON requests(reference);
 CREATE INDEX idx_requests_status ON requests(status);
 CREATE INDEX idx_requests_beneficiaire ON requests(beneficiaire_id);
@@ -316,5 +367,7 @@ CREATE INDEX idx_audit_timestamp ON audit_logs(timestamp);
 CREATE INDEX idx_return_contracts_beneficiaire ON return_contracts(beneficiaire_id);
 CREATE INDEX idx_password_resets_email ON password_resets(email);
 CREATE INDEX idx_password_resets_token ON password_resets(token_hash);
+CREATE INDEX idx_workflow_def_schema ON workflow_definitions(schema_id);
+CREATE INDEX idx_workflow_inst_entity ON workflow_instances(entity_id);
 
 SET FOREIGN_KEY_CHECKS = 1;

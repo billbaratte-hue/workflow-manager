@@ -510,6 +510,69 @@ async function initializeSchema(db: ISqliteDb): Promise<void> {
         await db.exec(`CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_resets(token_hash);`);
     } catch {}
 
+    // 23. Schema Definitions table (Spécification Moteur de Workflow Blockly)
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS schema_definitions (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            code TEXT,
+            description TEXT,
+            fields TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+    `);
+
+    // 24. Dynamic Entities table (Payloads JSON des formulaires dynamiques)
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS dynamic_entities (
+            id TEXT PRIMARY KEY,
+            schema_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'DRAFT',
+            payload_json TEXT NOT NULL,
+            initiator_id INTEGER,
+            initiator_name TEXT,
+            initiator_email TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+    `);
+
+    // 25. Blockly Workflow Definitions table
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS workflow_definitions (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            schema_id TEXT NOT NULL,
+            trigger_type TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'ACTIVE',
+            xml_state TEXT,
+            ast_json TEXT NOT NULL,
+            version INTEGER DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+    `);
+
+    // 26. Blockly Workflow Instances & Execution History table
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS workflow_instances (
+            id TEXT PRIMARY KEY,
+            workflow_id TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            trigger_type TEXT NOT NULL,
+            status TEXT NOT NULL,
+            execution_log TEXT,
+            approval_state TEXT,
+            executed_at TEXT NOT NULL
+        );
+    `);
+    try {
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_workflow_def_schema ON workflow_definitions(schema_id);`);
+        await db.exec(`CREATE INDEX IF NOT EXISTS idx_workflow_inst_entity ON workflow_instances(entity_id);`);
+    } catch {}
+
     // Add process, form, demandeur fields to requests table if missing
     try {
         await db.exec(`ALTER TABLE requests ADD COLUMN process_id INTEGER;`);
@@ -1258,5 +1321,152 @@ async function seedInitialData(db: ISqliteDb): Promise<void> {
         }
     } catch (e) {
         console.warn('Seeding notifications warning:', e);
+    }
+
+    // Seed schema_definitions (Spécification Moteur de Workflow Blockly)
+    try {
+        const schemasCount = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM schema_definitions');
+        if (schemasCount && Number(schemasCount.count) === 0) {
+            const defaultSchemas = [
+                {
+                    id: 'schema_intervention_cle',
+                    name: 'Demande de Clé Mécatronique & Accès Technique',
+                    code: 'MEC-CLE-01',
+                    description: 'Formulaire de demande de clé électronique avec périmètre d\'intervention et zonage',
+                    fields: JSON.stringify([
+                        { key: 'beneficiaire_nom', label: 'Bénéficiaire / Agent', type: 'text', required: true },
+                        { key: 'site_nom', label: 'Site / Gare d\'intervention', type: 'text', required: true },
+                        { key: 'zone_acces', label: 'Zone d\'accès (TGBT, Local Technique, Voies)', type: 'select', required: true, options: ['TGBT', 'Local Technique', 'Poste Aiguillage', 'Voies & Quai', 'Bureaux'] },
+                        { key: 'duree_heures', label: 'Durée d\'intervention (heures)', type: 'number', required: true },
+                        { key: 'urgence_securite', label: 'Urgence opérationnelle / Dépannage', type: 'boolean', required: false },
+                        { key: 'motif_detaille', label: 'Motif de l\'intervention', type: 'text', required: true },
+                        { key: 'cout_estime', label: 'Coût estimé (€)', type: 'number', required: false }
+                    ])
+                },
+                {
+                    id: 'schema_materiel_electrique',
+                    name: 'Dotation Matériel Électrique & Outillage Spécialisé',
+                    code: 'DOT-ELEC-02',
+                    description: 'Formulaire de dotation de matériel et outillage sensible soumis à validation budgétaire',
+                    fields: JSON.stringify([
+                        { key: 'demandeur_nom', label: 'Nom du Demandeur', type: 'text', required: true },
+                        { key: 'type_outillage', label: 'Type d\'équipement', type: 'select', required: true, options: ['Détecteur VAT', 'Perche isolante', 'Cadenas LOTO', 'Valise mécatronique', 'Kit EPI HTA'] },
+                        { key: 'quantite', label: 'Quantité demandée', type: 'number', required: true },
+                        { key: 'montant_total', label: 'Montant total estimé (€)', type: 'number', required: true },
+                        { key: 'centre_cout', label: 'Centre de coût / Imputation', type: 'text', required: true },
+                        { key: 'justification', label: 'Justification opérationnelle', type: 'text', required: true }
+                    ])
+                },
+                {
+                    id: 'schema_acces_site',
+                    name: 'Habilitation d\'Accès aux Emprises & Établissements',
+                    code: 'HAB-ACC-03',
+                    description: 'Attribution de droits d\'accès aux sites opérationnels pour agents et prestataires',
+                    fields: JSON.stringify([
+                        { key: 'agent_matricule', label: 'Matricule / Identifiant', type: 'text', required: true },
+                        { key: 'entreprise_externe', label: 'Entreprise externe (si prestataire)', type: 'text', required: false },
+                        { key: 'niveau_habilitation', label: 'Niveau d\'habilitation', type: 'select', required: true, options: ['B0 / H0', 'BR / BC', 'B2V / H2V', 'CACES', 'Accès Voie'] },
+                        { key: 'date_debut', label: 'Date de début de validité', type: 'date', required: true },
+                        { key: 'date_fin', label: 'Date de fin de validité', type: 'date', required: true },
+                        { key: 'badge_existant', label: 'Possède déjà un badge RFID', type: 'boolean', required: false }
+                    ])
+                }
+            ];
+
+            for (const s of defaultSchemas) {
+                const now = new Date().toISOString();
+                await db.run(
+                    `INSERT INTO schema_definitions (id, name, code, description, fields, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    s.id, s.name, s.code, s.description, s.fields, now, now
+                );
+            }
+        }
+    } catch (e) {
+        console.warn('Seeding schema_definitions warning:', e);
+    }
+
+    // Seed default Blockly workflow definition if empty
+    try {
+        const wfCount = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM workflow_definitions');
+        if (wfCount && Number(wfCount.count) === 0) {
+            const now = new Date().toISOString();
+            const demoAST = {
+                version: "1.0",
+                name: "Règle de Filtrage Accès Sensible & Durée",
+                schema_id: "schema_intervention_cle",
+                trigger_type: "ON_SUBMIT",
+                rules: [
+                    {
+                        id: "rule_1",
+                        type: "CONDITION",
+                        condition: {
+                            type: "LOGICAL",
+                            operator: "OR",
+                            left: {
+                                type: "COMPARISON",
+                                operator: ">",
+                                left: { type: "FIELD", key: "duree_heures" },
+                                right: { type: "LITERAL", value: 4 }
+                            },
+                            right: {
+                                type: "COMPARISON",
+                                operator: "EQUALS",
+                                left: { type: "FIELD", key: "zone_acces" },
+                                right: { type: "LITERAL", value: "TGBT" }
+                            }
+                        },
+                        then_actions: [
+                            {
+                                type: "APPROVAL",
+                                role: "Manager N+1",
+                                sla_hours: 24,
+                                on_approved: [
+                                    { type: "UPDATE_STATUS", status: "VALIDE_MANAGER" },
+                                    { type: "NOTIFICATION", channel: "IN_APP", recipient: "Demandeur", message: "Accès validé par le Manager." }
+                                ],
+                                on_rejected: [
+                                    { type: "UPDATE_STATUS", status: "REFUSE" }
+                                ]
+                            },
+                            {
+                                type: "UPDATE_STATUS",
+                                status: "EN_ATTENTE_MANAGER"
+                            }
+                        ],
+                        else_actions: [
+                            {
+                                type: "UPDATE_STATUS",
+                                status: "VALIDE_AUTOMATIQUEMENT"
+                            },
+                            {
+                                type: "NOTIFICATION",
+                                channel: "IN_APP",
+                                recipient: "Demandeur",
+                                message: "Accès validé automatiquement sous le seuil d'éligibilité standard."
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            await db.run(
+                `INSERT INTO workflow_definitions (id, name, description, schema_id, trigger_type, status, xml_state, ast_json, version, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                'wf_interv_cle_01',
+                'Contrôle d\'Accès Zoner TGBT & Dépassement 4h',
+                'Exige validation du Manager si durée > 4h ou zone critique TGBT, sinon valide automatiquement.',
+                'schema_intervention_cle',
+                'ON_SUBMIT',
+                'ACTIVE',
+                '',
+                JSON.stringify(demoAST),
+                1,
+                now,
+                now
+            );
+        }
+    } catch (e) {
+        console.warn('Seeding default workflow_definitions warning:', e);
     }
 }

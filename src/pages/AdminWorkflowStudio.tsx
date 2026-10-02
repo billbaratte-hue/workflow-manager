@@ -516,6 +516,16 @@ export default function AdminWorkflowStudio() {
                         <Download className="w-3.5 h-3.5" />
                     </button>
 
+                    {/* Blockly Visual Studio Link */}
+                    <Link
+                        to="/admin/blockly-workflows"
+                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
+                        title="Ouvrir le Studio Visuel Google Blockly"
+                    >
+                        <WorkflowIcon className="w-3.5 h-3.5 text-indigo-600" />
+                        <span className="hidden lg:inline">Règles Blockly</span>
+                    </Link>
+
                     {/* Live Test Simulator Button */}
                     <button
                         type="button"

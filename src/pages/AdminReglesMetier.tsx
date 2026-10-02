@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
+    Workflow,
     Shield,
     Zap,
     CheckCircle2,
@@ -623,6 +625,14 @@ export const AdminReglesMetier: React.FC = () => {
                                     <FolderKanban className="w-4 h-4 text-emerald-300" />
                                     <span>Domaines ({domains.length})</span>
                                 </button>
+                                <Link
+                                    to="/admin/blockly-workflows"
+                                    className="px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition border border-indigo-400/40 flex items-center gap-2 cursor-pointer shadow-sm"
+                                    title="Ouvrir le Studio Visuel Google Blockly"
+                                >
+                                    <Workflow className="w-4 h-4 text-indigo-200" />
+                                    <span>Studio Blockly</span>
+                                </Link>
                                 <button
                                     id="btn-new-business-rule"
                                     onClick={handleOpenCreate}

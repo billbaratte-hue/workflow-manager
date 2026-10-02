@@ -21,6 +21,7 @@ import AdminStatuts from './pages/AdminStatuts';
 import AdminReglesMetier from './pages/AdminReglesMetier';
 import WorkflowStateMachine from './pages/WorkflowStateMachine';
 import AdminWorkflowStudio from './pages/AdminWorkflowStudio';
+import BlocklyWorkflowStudio from './pages/BlocklyWorkflowStudio';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ResetPassword from './pages/ResetPassword';
@@ -328,6 +329,9 @@ function AuthenticatedApp({ user, onLogout }: { user: any; onLogout: () => void 
                         <Route path="/admin/processus/:processId/studio" element={<AdminWorkflowStudio />} />
                         <Route path="/admin/workflow-studio/:processId" element={<AdminWorkflowStudio />} />
                         <Route path="/admin/workflow-studio" element={<AdminWorkflowStudio />} />
+                        <Route path="/admin/blockly-workflows" element={<BlocklyWorkflowStudio />} />
+                        <Route path="/admin/blockly-workflows/:id" element={<BlocklyWorkflowStudio />} />
+                        <Route path="/blockly-studio" element={<BlocklyWorkflowStudio />} />
                         <Route element={<AdminLayout />}>
                             {/* Points d'accès canoniques de l'Espace Administrateur */}
                             <Route path="/admin" element={<AdminProcessus />} />

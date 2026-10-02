@@ -12,6 +12,7 @@ import adminRoutes from './server/routes/admin.routes.js';
 import aiRoutes from './server/routes/ai.routes.js';
 import notificationsRoutes from './server/routes/notifications.routes.js';
 import workflowRoutes from './server/routes/workflow.routes.js';
+import blocklyRoutes from './server/routes/blockly.routes.js';
 import { workflowRepository } from './server/repositories/workflow.repository.js';
 import { configRepository } from './server/repositories/config.repository.js';
 import { getFeatures, updateFeature, batchUpdateFeatures } from './server/controllers/features.controller.js';
@@ -107,6 +108,9 @@ async function startServer() {
 
   app.use('/api/v1/workflow', workflowRoutes);
   app.use('/api/workflow', workflowRoutes);
+
+  app.use('/api/v1/blockly-workflows', blocklyRoutes);
+  app.use('/api/blockly-workflows', blocklyRoutes);
 
   // Vite middleware for development vs static for production
   if (process.env.NODE_ENV !== 'production') {
