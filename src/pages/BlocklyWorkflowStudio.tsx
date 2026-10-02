@@ -197,6 +197,10 @@ export default function BlocklyWorkflowStudio() {
         });
 
         workspaceRef.current = ws;
+        if (typeof window !== 'undefined') {
+            (window as any).blocklyWorkspace = ws;
+            (window as any).Blockly = Blockly;
+        }
 
         // Redimensionnement automatique
         const handleResize = () => {
@@ -206,6 +210,9 @@ export default function BlocklyWorkflowStudio() {
 
         return () => {
             window.removeEventListener('resize', handleResize);
+            if (typeof window !== 'undefined') {
+                delete (window as any).blocklyWorkspace;
+            }
             ws.dispose();
             workspaceRef.current = null;
         };
